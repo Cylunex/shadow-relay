@@ -43,7 +43,7 @@ make dev
 - [开发、配置与容器使用](docs/development.md)
 - [客户端协议与接入](docs/client-contract.md)
 - [安全与恢复](docs/security.md)
-- 种子 URL：`seeds/`（含 zgqinc 18+ mega packs、Yiove 皇叔、PixivSource；仅 URL，不入库巨型 JSON）
+- 种子 URL：本地 `seeds/`（**不入库 / 不推送**；含 zgqinc 18+ mega packs、Yiove 皇叔、PixivSource 与 `recipes.json`；缺失时服务仍可启动，仅无种子配方）
 - [OpenAPI](contracts/openapi.json) · [Bundle Schema](contracts/shadow-media-bundle.schema.json) · [Source Schema](contracts/source.schema.json)
 
 书源聚合执行通过生成的原生插件交给官方 Hub；跨媒体全文搜索、内容代理、Shadow Media 托管模式和听读进度联动仍属于独立客户端/运行时工作。实际部署资料和秘密保存在仓库之外。当前新增实现按要求暂停测试，状态见交付文档。

@@ -1,5 +1,12 @@
 package service
 
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sync"
+)
+
 type ReferenceRecipe struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
@@ -14,38 +21,17 @@ type ReferenceRecipe struct {
 
 // This is an opt-in onboarding catalog, never an automatic scraper or allowlist.
 // Project URLs are public upstream references, not operator deployment addresses.
+// Curated seed URL catalogs live under local seeds/ (gitignored); they are loaded
+// at runtime when present and omitted when missing so serve still works.
 func ReferenceRecipes() []ReferenceRecipe {
+	// Local seed catalogs first (when present), then built-in project references.
+	out := append([]ReferenceRecipe{}, loadLocalSeedRecipes()...)
+	out = append(out, builtInReferenceRecipes()...)
+	return out
+}
+
+func builtInReferenceRecipes() []ReferenceRecipe {
 	return []ReferenceRecipe{
-		{"seed-legado-18plus-250118", "精选·18+书源 250118", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/250118.json", "legado-book", "source", "已接入", "seeds/legado/priority-18plus.urls.txt 优先包；URL 种子不入库 JSON"},
-		{"seed-legado-18plus-250106", "精选·18+书源 250106", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/250106.json", "legado-book", "source", "已接入", "含 ## 与 searchUrl 逗号 JSON；适配器已放宽不透明规则校验"},
-		{"seed-legado-uaa2", "精选·UAA2", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/uaa2.json", "legado-book", "source", "已接入", "UAA 相关优先书源包"},
-		{"seed-legado-yck-5530", "精选·yckceo 5530", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/5530.json", "legado-book", "source", "已接入", "yckceo 单仓；yckceo1 镜像常 403"},
-		{"seed-legado-uaa2.0", "精选·UAA2.0", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/uaa2.0.json", "legado-book", "source", "已接入", "UAA·小说2.0 单源"},
-		{"seed-legado-2401115-sese", "精选·涩涩俱乐部", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/2401115.json", "legado-book", "source", "已接入", "🔞涩涩俱乐部"},
-		{"seed-legado-2501112-ntr", "精选·NTR小说", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/2501112.json", "legado-book", "source", "已接入", "NTR 向单源"},
-		{"seed-legado-2411192-diyibanzhu", "精选·第一版主", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/2411192.json", "legado-book", "source", "已接入", "第一版主成人小说"},
-		{"seed-legado-250418", "精选·18+合集 250418", "读", "https://github.com/yuedu520/yuedu", "https://gcore.jsdelivr.net/gh/yuedu520/yuedu/250418.json", "legado-book", "source", "已接入", "成人向合集，导入约 67 条"},
-		{"seed-legado-250513-ntr", "精选·NTRseqing", "读", "https://github.com/yuedu520/yuedu", "https://gcore.jsdelivr.net/gh/yuedu520/yuedu/250513.json", "legado-book", "source", "已接入", "NTR/成人单源"},
-		{"seed-legado-yck-691", "精选·yckceo 691（已筛选18+）", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuans/json/id/691.json", "legado-book", "source", "已接入", "已筛选 18＋ 合集；勿用 yckceo1"},
-		{"seed-legado-yck-936", "精选·yckceo 936 UAA/瑟瑟", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuans/json/id/936.json", "legado-book", "source", "已接入", "含 UAA/禁漫/瑟瑟等"},
-		{"seed-legado-yck-1183", "精选·yckceo 1183 IOS含18+", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuans/json/id/1183.json", "legado-book", "source", "已接入", "IOS 自用书源+漫画含 18+"},
-		{"seed-legado-yck-3738-hanman", "精选·韩漫画 3738", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/3738.json", "legado-book", "source", "已接入", "🎨韩漫画🔞"},
-		{"seed-legado-yck-6201-alice", "精选·18爱丽丝书屋", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/6201.json", "legado-book", "source", "已接入", "18爱丽丝书屋"},
-		{"seed-legado-yck-7585-alice", "精选·爱丽丝书屋", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/7585.json", "legado-book", "source", "已接入", "爱丽丝书屋"},
-		{"seed-legado-yck-5833", "精选·漫小肆 5833", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/5833.json", "legado-book", "source", "已接入", "漫小肆韩漫向"},
-		{"seed-zgqinc-book-1", "zgqinc · bookSource_1 18+", "读", "https://source.zgqinc.gq/", "https://source-repo.zgqinc.gq/legado3/bookSource/bookSource_1.json", "legado-book", "source", "URL种子", "约3523条/~24MB；超 Relay 8MB 拉取上限，仅种子不入库"},
-		{"seed-zgqinc-book-2", "zgqinc · bookSource_2 18+", "读", "https://source.zgqinc.gq/", "https://source-repo.zgqinc.gq/legado3/bookSource/bookSource_2.json", "legado-book", "source", "URL种子", "约3523条；成人向密度高"},
-		{"seed-zgqinc-book-3", "zgqinc · bookSource_3 18+", "读", "https://source.zgqinc.gq/", "https://source-repo.zgqinc.gq/legado3/bookSource/bookSource_3.json", "legado-book", "source", "URL种子", "约3523条；肉书屋等"},
-		{"seed-yiove-huangshu", "Yiove · 一些皇叔书源 18+", "读", "https://shuyuan.yiove.com/", "https://shuyuan-api.yiove.com/import/book-source-collection/06626937-970d-4936-8fd1-8f4ecbbd64f9", "legado-book", "source", "已接入", "168 条；本地 import-tested"},
-		{"seed-pixivsource-pixiv", "PixivSource · pixiv NSFW", "读", "https://github.com/windyhusky/PixivSource", "https://raw.githubusercontent.com/windyhusky/PixivSource/main/pixiv.json", "legado-book", "source", "已接入", "Pixiv 小说书源；登录/复杂 JS 需专门运行时"},
-		{"seed-pixivsource-linpx", "PixivSource · linpx", "读", "https://github.com/windyhusky/PixivSource", "https://raw.githubusercontent.com/windyhusky/PixivSource/main/linpx.json", "legado-book", "source", "已接入", "Linpx 镜像书源"},
-		{"seed-iptv-zgqinc-cospa", "IPTV · zgqinc cospa 590", "看", "https://source.zgqinc.gq/", "https://source-repo.zgqinc.gq/cospa/2023-02-01_590.txt", "m3u", "source", "候选", "上游为压缩/非纯 M3U 文本，导入可能失败；仅作发现种子"},
-		{"seed-tvbox-ngzmods", "TVBox · ngzmods", "看", "https://16409.kstore.vip/", "https://16409.kstore.vip/tv/ngzmods.json", "tvbox", "source", "已接入", "seeds/tvbox/warehouses.urls.txt"},
-		{"seed-tvbox-newwex", "TVBox · newwex", "看", "https://9280.kstore.vip/", "https://9280.kstore.vip/newwex.json", "tvbox", "source", "已接入", "多仓候选，审核后发布"},
-		{"seed-tvbox-xc", "TVBox · XC", "看", "https://github.com/yoursmile66/TVBox", "https://gh-proxy.com/https://raw.githubusercontent.com/yoursmile66/TVBox/refs/heads/main/XC.json", "tvbox", "source", "已接入", "经 gh-proxy 拉取"},
-		{"seed-tvbox-xyq", "TVBox · XYQ", "看", "https://github.com/xyq254245/xyqonlinerule", "https://gh-proxy.com/https://raw.githubusercontent.com/xyq254245/xyqonlinerule/main/XYQTVBox.json", "tvbox", "source", "已接入", "经 gh-proxy 拉取"},
-		{"seed-iptv-guovin", "IPTV · Guovin result", "看", "https://github.com/Guovin/iptv-api", "https://cdn.jsdelivr.net/gh/Guovin/iptv-api@gd/output/result.m3u", "m3u", "source", "已接入", "seeds/iptv/live.urls.txt"},
-		{"seed-iptv-rihou", "IPTV · rihou live", "看", "http://rihou.cc:555/", "http://rihou.cc:555/gggg.nzk", "m3u", "source", "候选", "直播清单；格式以导入预览为准"},
 		{"yuanc-books", "yuanc · 书源目录", "读", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/legado/books.json", "catalog", "catalog", "已接入", "原生 link 字段、路径分类与相对链接；先进入候选箱"},
 		{"yuanc-video", "yuanc · 影视目录", "看", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/ysc/videos.json", "catalog", "catalog", "已接入", "单仓、多仓候选分别审核"},
 		{"yuanc-iptv", "yuanc · 直播目录", "看", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/iptv/iptv.json", "catalog", "catalog", "已接入", "目录同步后接纳 M3U/TXT 订阅"},
@@ -98,4 +84,29 @@ func ReferenceRecipes() []ReferenceRecipe {
 		{"browserless", "Browserless / Playwright", "工具", "https://github.com/XziXmn/legado-hub/blob/main/docker-compose.browserless.yml", "", "", "runtime", "可选外置", "复杂站点交给 Hub 的受控浏览器；不自动部署"},
 		{"cf-browser", "CloudflareBypassForScraping", "工具", "https://github.com/sarperavci/CloudflareBypassForScraping", "", "", "runtime", "外部参考", "浏览器类工具可由操作者选择；Relay 不实现绕过登录或付费限制"},
 	}
+}
+
+var (
+	seedRecipesOnce sync.Once
+	seedRecipes     []ReferenceRecipe
+)
+
+func loadLocalSeedRecipes() []ReferenceRecipe {
+	seedRecipesOnce.Do(func() {
+		dir := os.Getenv("RELAY_SEEDS_DIR")
+		if dir == "" {
+			dir = "seeds"
+		}
+		path := filepath.Join(dir, "recipes.json")
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return
+		}
+		var list []ReferenceRecipe
+		if err := json.Unmarshal(b, &list); err != nil {
+			return
+		}
+		seedRecipes = list
+	})
+	return seedRecipes
 }

@@ -27,3 +27,6 @@ internal/adapter/testdata_*.json
 
 __pycache__/
 *.pyc
+
+# local-only seed URL catalogs (do not commit or push)
+seeds/
