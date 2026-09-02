@@ -35,6 +35,7 @@ import QRCode from "qrcode";
 import { LocalSourceEditor } from "./LocalSourceEditor";
 import { PodcastComposer } from "./PodcastComposer";
 import { DataTransfer } from "./DataTransfer";
+import { EnableSources } from "./EnableSources";
 import {
   api,
   defaultMember,
@@ -853,6 +854,8 @@ function Sources({ data, open, busy, run }: PanelProps) {
   const [health, setHealth] = useState("");
   const [protocol, setProtocol] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [reviewOnly, setReviewOnly] = useState(false);
+  const [enableSources, setEnableSources] = useState<Source[]>();
   const matches = data.sources.filter(
     (s) =>
       (s.name + " " + s.protocol + " " + s.url)
@@ -860,18 +863,60 @@ function Sources({ data, open, busy, run }: PanelProps) {
         .includes(query.toLowerCase()) &&
       (!health || s.health === health) &&
       (!protocol || s.protocol === protocol) &&
+      (!reviewOnly || !!s.stagedRevision) &&
       (domain === "全部" || s.mediaTypes.some((m) => m.startsWith(domain))),
   );
-  const batch = (action: string) =>
-    run(
+  const batch = (action: string) => {
+    const sources = data.sources.filter((s) => selected.includes(s.id));
+    if (action === "enable" && sources.some((s) => !s.activeRevision)) {
+      setEnableSources(sources);
+      return;
+    }
+    return run(
       async () => {
         for (const id of selected) await api(`sources/${id}/${action}`, "POST");
         setSelected([]);
       },
       action === "probe" ? "已加入体检队列" : "批量操作已完成",
     );
+  };
   return (
     <>
+      {enableSources && (
+        <EnableSources
+          sources={enableSources}
+          close={() => setEnableSources(undefined)}
+          updated={() =>
+            run(async () => {
+              setSelected([]);
+            }, "源状态已更新")
+          }
+        />
+      )}
+      {data.sources.some((s) => s.stagedRevision) && (
+        <div className="preview-box">
+          <h3>
+            {data.sources.filter((s) => s.stagedRevision).length}{" "}
+            个源有待审核版本
+          </h3>
+          <p>
+            导入的源在这里审核。选择源后可批准并启用；候选箱用于上游目录发现。
+          </p>
+          <button
+            className="secondary"
+            onClick={() => {
+              setReviewOnly(true);
+              setDomain("全部");
+              setHealth("");
+              setProtocol("");
+              setQuery("");
+              setSelected([]);
+            }}
+          >
+            查看待审核源
+          </button>
+        </div>
+      )}
       <div className="tabs">
         {[
           ["全部", "全部"],
@@ -932,12 +977,30 @@ function Sources({ data, open, busy, run }: PanelProps) {
           ))}
         </select>
         <span className="result-count">{matches.length} 个源</span>
+        <label>
+          <input
+            type="checkbox"
+            checked={reviewOnly}
+            onChange={(e) => {
+              setReviewOnly(e.target.checked);
+              setSelected([]);
+            }}
+          />{" "}
+          待审核
+        </label>
       </div>
       {selected.length > 0 && (
         <div className="selection-bar">
           <span>已选 {selected.length} 项</span>
           {[
-            ["enable", "启用"],
+            [
+              "enable",
+              data.sources.some(
+                (s) => selected.includes(s.id) && !s.activeRevision,
+              )
+                ? "批准并启用"
+                : "启用",
+            ],
             ["disable", "停用"],
             ["probe", "体检"],
             ["quarantine", "隔离"],
@@ -1217,7 +1280,7 @@ function Discover({ data, open, busy, run }: PanelProps) {
         {!data.candidates.some((c) => c.status === status) && (
           <Empty
             title="这里暂时没有条目"
-            description="同步上游后，新增条目将在这里等待你审核。"
+            description="同步上游后，新增条目将在这里等待审核。备份导入的源请到“源库”筛选“待审核”，然后批准并启用。"
           />
         )}
       </div>
@@ -2060,6 +2123,7 @@ function SourceDialog({
   refresh: () => Promise<void>;
 }) {
   const [tab, setTab] = useState("overview");
+  const [enableSources, setEnableSources] = useState<Source[]>();
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [probes, setProbes] = useState<Probe[]>([]);
   const [form, setForm] = useState({
@@ -2104,6 +2168,17 @@ function SourceDialog({
         a === "sync" || a === "probe" ? "已加入后台任务队列" : "操作已完成",
       );
     });
+  if (enableSources)
+    return (
+      <EnableSources
+        sources={enableSources}
+        close={() => setEnableSources(undefined)}
+        updated={async () => {
+          await refresh();
+          await load();
+        }}
+      />
+    );
   return (
     <Modal
       title={source.name}
@@ -2188,10 +2263,23 @@ function SourceDialog({
             <div className="button-row spacer">
               <button
                 className="primary"
-                disabled={busy || (!source.enabled && !source.activeRevision)}
-                onClick={() => action(source.enabled ? "disable" : "enable")}
+                disabled={
+                  busy ||
+                  (!source.enabled &&
+                    !source.activeRevision &&
+                    !source.stagedRevision)
+                }
+                onClick={() =>
+                  !source.enabled && !source.activeRevision
+                    ? setEnableSources([source])
+                    : action(source.enabled ? "disable" : "enable")
+                }
               >
-                {source.enabled ? "停用源" : "启用源"}
+                {source.enabled
+                  ? "停用源"
+                  : !source.activeRevision && source.stagedRevision
+                    ? "批准并启用"
+                    : "启用源"}
               </button>
               <button
                 className="secondary"

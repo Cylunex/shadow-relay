@@ -59,7 +59,9 @@ export function DataTransfer({
       if (result.applied) {
         setKey("");
         setFile(undefined);
-        setMessage("导入成功。数据已合并，快照和凭据已使用当前实例密钥保存。");
+        setMessage(
+          "导入成功。源保留原审批和启用状态；待审核源请前往“源库”，筛选“待审核”后批准并启用。候选箱仅显示上游目录发现的条目。",
+        );
         await refresh();
       } else if (result.keyRequired) {
         setError(
