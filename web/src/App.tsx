@@ -34,6 +34,7 @@ import {
 import QRCode from "qrcode";
 import { LocalSourceEditor } from "./LocalSourceEditor";
 import { PodcastComposer } from "./PodcastComposer";
+import { DataTransfer } from "./DataTransfer";
 import {
   api,
   defaultMember,
@@ -105,6 +106,7 @@ const emptyData: Data = {
   meta: { adapters: [], connectors: {}, formats: [] },
 };
 type Dialog =
+  | { type: "data-transfer" }
   | { type: "import"; seed?: ImportSeed }
   | { type: "source"; source: Source }
   | { type: "set"; set?: SourceSet }
@@ -225,7 +227,7 @@ export default function App() {
             setPage("overview");
           }}
         >
-          <img src="/relay.svg" alt="" />
+          <img src={import.meta.env.BASE_URL + "relay.svg"} alt="" />
           <div>
             Shadow Relay<span>全媒体源编排中心</span>
           </div>
@@ -283,6 +285,13 @@ export default function App() {
             {navigation.find((n) => n.id === page)?.title}
           </div>
           <div className="topbar-right">
+            <button
+              className="secondary"
+              onClick={() => setDialog({ type: "data-transfer" })}
+            >
+              <ArrowDownToLine size={16} />
+              导入 / 导出
+            </button>
             <span className="online">
               <i />
               私有控制台
@@ -392,6 +401,9 @@ export default function App() {
           {toast}
         </div>
       )}
+      {dialog?.type === "data-transfer" && (
+        <DataTransfer close={() => setDialog(null)} refresh={refresh} />
+      )}
       {dialog?.type === "import" && (
         <ImportDialog
           seed={dialog.seed}
@@ -492,7 +504,7 @@ function Login({ login }: { login: (token: string) => Promise<void> }) {
   return (
     <div className="login-page">
       <div className="login-brand">
-        <img src="/relay.svg" alt="" />
+        <img src={import.meta.env.BASE_URL + "relay.svg"} alt="" />
         Shadow Relay
       </div>
       <div className="login-art">
@@ -500,7 +512,7 @@ function Login({ login }: { login: (token: string) => Promise<void> }) {
         <div className="orbit orbit-two" />
         <div className="orbit orbit-three" />
         <div className="orbit-core">
-          <img src="/relay.svg" alt="" />
+          <img src={import.meta.env.BASE_URL + "relay.svg"} alt="" />
         </div>
         <span className="orbit-node node-a">
           <Video />看
@@ -1663,6 +1675,8 @@ function Jobs({ data, busy, run }: PanelProps) {
 }
 function actionLabel(action: string) {
   const map: Record<string, string> = {
+    "data.import": "导入空间数据",
+    "data.export": "导出空间数据",
     "source.import": "导入源",
     "source.sync": "同步源",
     "source.probe": "源体检",

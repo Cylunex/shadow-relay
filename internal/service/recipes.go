@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type ReferenceRecipe struct {
@@ -86,27 +85,25 @@ func builtInReferenceRecipes() []ReferenceRecipe {
 	}
 }
 
-var (
-	seedRecipesOnce sync.Once
-	seedRecipes     []ReferenceRecipe
-)
-
 func loadLocalSeedRecipes() []ReferenceRecipe {
-	seedRecipesOnce.Do(func() {
-		dir := os.Getenv("RELAY_SEEDS_DIR")
-		if dir == "" {
+	dir := os.Getenv("RELAY_SEEDS_DIR")
+	if dir == "" {
+		data := os.Getenv("RELAY_DATA_DIR")
+		if data == "" {
+			data = "data"
+		}
+		dir = filepath.Join(data, "seeds")
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			dir = "seeds"
 		}
-		path := filepath.Join(dir, "recipes.json")
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return
-		}
-		var list []ReferenceRecipe
-		if err := json.Unmarshal(b, &list); err != nil {
-			return
-		}
-		seedRecipes = list
-	})
-	return seedRecipes
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "recipes.json"))
+	if err != nil {
+		return nil
+	}
+	var list []ReferenceRecipe
+	if json.Unmarshal(b, &list) != nil {
+		return nil
+	}
+	return list
 }

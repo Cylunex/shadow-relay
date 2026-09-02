@@ -159,6 +159,47 @@
           "name",
           "members"
         ]
+      },
+      "DataTransferSummary": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "added": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "reused": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "snapshots": {
+            "type": "integer"
+          },
+          "seedFiles": {
+            "type": "integer"
+          },
+          "interruptedJobs": {
+            "type": "integer"
+          },
+          "keyRequired": {
+            "type": "boolean"
+          },
+          "applied": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },
@@ -3590,6 +3631,100 @@
           },
           "409": {
             "description": "Configuration conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/data/export": {
+      "get": {
+        "summary": "导出完整空间数据包",
+        "operationId": "exportWorkspaceData",
+        "description": "管理员专用。返回包含版本化清单、加密快照和种子文件的 tar.gz；不包含主密钥或环境配置。",
+        "responses": {
+          "200": {
+            "description": "私密备份附件",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "需要管理员 Bearer"
+          },
+          "409": {
+            "description": "已有数据迁移正在执行"
+          }
+        }
+      }
+    },
+    "/api/v1/data/import": {
+      "post": {
+        "summary": "预览或合并导入空间数据包",
+        "operationId": "importWorkspaceData",
+        "description": "默认仅预览。64 MiB 文件上限；跨实例数据需提供原主密钥，目标密钥不变；同 ID 冲突整次回滚。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "preview",
+                      "apply"
+                    ],
+                    "default": "preview"
+                  },
+                  "sourceMasterKey": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "仅在本次请求内存中用于解密"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "预览或导入统计；仅 applied=true 表示已写入",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataTransferSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "数据包、密钥或结构无效"
+          },
+          "401": {
+            "description": "需要管理员 Bearer"
+          },
+          "403": {
+            "description": "跨站请求被拒绝"
+          },
+          "409": {
+            "description": "数据冲突或存在待处理任务"
+          },
+          "413": {
+            "description": "上传超过大小限制"
           }
         }
       }

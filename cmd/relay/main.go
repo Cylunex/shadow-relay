@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -95,12 +96,13 @@ func main() {
 	}
 	public := env("RELAY_PUBLIC_URL", "http://localhost:8080")
 	if e = security.SafeURL(public); e != nil {
-		slog.Error("RELAY_PUBLIC_URL must be an HTTP(S) origin")
+		slog.Error("RELAY_PUBLIC_URL must be an HTTP(S) base URL")
 		os.Exit(1)
 	}
 	publicURL, _ := url.Parse(public)
-	if (publicURL.Path != "" && publicURL.Path != "/") || publicURL.RawQuery != "" {
-		slog.Error("RELAY_PUBLIC_URL must be an origin without path or query")
+	basePath := strings.TrimRight(publicURL.Path, "/")
+	if publicURL.RawQuery != "" || publicURL.ForceQuery || publicURL.Fragment != "" || publicURL.RawPath != "" || (basePath != "" && path.Clean(basePath) != basePath) {
+		slog.Error("RELAY_PUBLIC_URL must have a clean path without query or fragment")
 		os.Exit(1)
 	}
 	api := &httpapi.Server{Service: svc, AdminToken: admin, WebDir: env("RELAY_WEB_DIR", "web/dist"), PublicURL: public}

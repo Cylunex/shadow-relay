@@ -1267,6 +1267,22 @@ td .source-name {
 .modal-body {
   padding: 23px 27px;
 }
+.data-transfer {
+  display: grid;
+  gap: 18px;
+}
+.transfer-section {
+  padding: 20px;
+  min-width: 0;
+}
+.transfer-section p {
+  margin: 12px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.transfer-section input[type="file"] {
+  max-width: 100%;
+}
 .modal-footer {
   border-top: 1px solid #e9eee1;
   padding: 18px 27px;

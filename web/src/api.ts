@@ -2,12 +2,25 @@ let credential = "";
 export function setCredential(token: string) {
   credential = token;
 }
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(import.meta.env.BASE_URL + "api/v1/" + path, {
+    method: "POST",
+    headers: { Authorization: "Bearer " + credential },
+    body: form,
+  });
+  const data = await response
+    .json()
+    .catch(() => ({ error: "上传失败或服务未返回有效响应" }));
+  if (!response.ok)
+    throw new Error(data.error ?? `请求失败 (${response.status})`);
+  return data as T;
+}
 export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
 ): Promise<T> {
-  const response = await fetch("/api/v1/" + path, {
+  const response = await fetch(import.meta.env.BASE_URL + "api/v1/" + path, {
     method,
     headers: {
       Authorization: "Bearer " + credential,
@@ -96,7 +109,7 @@ export async function apiDownload(
   method = "GET",
   body?: unknown,
 ) {
-  const response = await fetch("/api/v1/" + path, {
+  const response = await fetch(import.meta.env.BASE_URL + "api/v1/" + path, {
     method,
     headers: {
       Authorization: "Bearer " + credential,
