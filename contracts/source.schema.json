@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shadow Relay Source",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "protocol",
+    "mediaTypes",
+    "mode",
+    "capabilities",
+    "trust",
+    "network",
+    "updatePolicy",
+    "enabled",
+    "health"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "protocol": {
+      "type": "string"
+    },
+    "mediaTypes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mode": {
+      "enum": [
+        "catalog-only",
+        "compiled",
+        "runtime-backed",
+        "direct-client"
+      ]
+    },
+    "trust": {
+      "enum": [
+        "untrusted",
+        "reviewed",
+        "trusted"
+      ]
+    },
+    "network": {
+      "enum": [
+        "internet",
+        "trusted-lan"
+      ]
+    },
+    "updatePolicy": {
+      "enum": [
+        "auto",
+        "review",
+        "pinned",
+        "manual"
+      ]
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "health": {
+      "enum": [
+        "unknown",
+        "healthy",
+        "degraded",
+        "failing",
+        "quarantined",
+        "disabled"
+      ]
+    },
+    "score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "intervalMinutes": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 43200
+    }
+  }
+}

@@ -1,0 +1,60 @@
+name: Verify Shadow Relay
+on:
+  workflow_dispatch:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      RELAY_TEST_DATABASE_URL: postgres://postgres@localhost:5432/postgres?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: go test -race -count=1 ./...
+      - run: go vet ./...
+      - run: npm ci --prefix web
+      - run: npm test --prefix web
+      - run: npm run build --prefix web
+      - run: npm run format:check --prefix web
+      - run: go build -trimpath -o bin/relay ./cmd/relay
+      - run: npx --prefix web playwright install --with-deps chromium
+      - name: Start isolated console for browser tests
+        run: |
+          ./bin/relay keygen > "$RUNNER_TEMP/relay.env"
+          chmod 600 "$RUNNER_TEMP/relay.env"
+          set -a
+          source "$RUNNER_TEMP/relay.env"
+          set +a
+          echo "::add-mask::$RELAY_ADMIN_TOKEN"
+          echo "::add-mask::$RELAY_MASTER_KEY"
+          echo "RELAY_TEST_ADMIN_TOKEN=$RELAY_ADMIN_TOKEN" >> "$GITHUB_ENV"
+          RELAY_DATABASE_URL="$RELAY_TEST_DATABASE_URL" RELAY_DATA_DIR="$RUNNER_TEMP/relay-data" RELAY_PUBLIC_URL=http://127.0.0.1:8080 ./bin/relay serve > "$RUNNER_TEMP/relay.log" 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/readyz; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: npm run test:e2e --prefix web
+      - name: Compile Linux distribution
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o bin/relay-linux ./cmd/relay

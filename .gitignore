@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+*.local.properties
+.DS_Store
+.idea/
+.vscode/
+data/
+bin/
+coverage.out
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+*.log
+*.tsbuildinfo

@@ -1,0 +1,3192 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Shadow Relay API",
+    "version": "0.1.0",
+    "description": "私有源控制面。管理接口使用 Bearer 管理令牌，订阅令牌仅授权相应编排组及格式。完整语义见 docs/。"
+  },
+  "security": [
+    {
+      "adminBearer": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "adminBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "SourceInput": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "protocol": {
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "trust": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "runtimeId": {
+            "type": "string"
+          },
+          "updatePolicy": {
+            "type": "string"
+          },
+          "intervalMinutes": {
+            "type": "integer"
+          },
+          "mediaTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/sources": {
+      "get": {
+        "summary": "读取 sources",
+        "operationId": "get_api_v1_sources",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/catalogs": {
+      "get": {
+        "summary": "读取 catalogs",
+        "operationId": "get_api_v1_catalogs",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      },
+      "post": {
+        "summary": "创建 catalogs",
+        "operationId": "post_api_v1_catalogs",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates": {
+      "get": {
+        "summary": "读取 candidates",
+        "operationId": "get_api_v1_candidates",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/source-sets": {
+      "get": {
+        "summary": "读取 source-sets",
+        "operationId": "get_api_v1_source_sets",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      },
+      "post": {
+        "summary": "创建 source-sets",
+        "operationId": "post_api_v1_source_sets",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications": {
+      "get": {
+        "summary": "读取 publications",
+        "operationId": "get_api_v1_publications",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/bindings": {
+      "get": {
+        "summary": "读取 bindings",
+        "operationId": "get_api_v1_bindings",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      },
+      "post": {
+        "summary": "创建客户端绑定并只返回一次令牌",
+        "operationId": "post_api_v1_bindings",
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtimes": {
+      "get": {
+        "summary": "读取 runtimes",
+        "operationId": "get_api_v1_runtimes",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      },
+      "post": {
+        "summary": "创建 runtimes",
+        "operationId": "post_api_v1_runtimes",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audits": {
+      "get": {
+        "summary": "读取 audits",
+        "operationId": "get_api_v1_audits",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "summary": "读取 jobs",
+        "operationId": "get_api_v1_jobs",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/feedback": {
+      "get": {
+        "summary": "读取 feedback",
+        "operationId": "get_api_v1_feedback",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/adapters": {
+      "get": {
+        "summary": "读取 adapters",
+        "operationId": "get_api_v1_adapters",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/sources/preview": {
+      "post": {
+        "summary": "preview source configuration",
+        "operationId": "post_api_v1_sources_preview",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  },
+                  "network": {
+                    "type": "string"
+                  },
+                  "trust": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "runtimeId": {
+                    "type": "string"
+                  },
+                  "updatePolicy": {
+                    "type": "string"
+                  },
+                  "intervalMinutes": {
+                    "type": "integer"
+                  },
+                  "mediaTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/import": {
+      "post": {
+        "summary": "import source configuration",
+        "operationId": "post_api_v1_sources_import",
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  },
+                  "network": {
+                    "type": "string"
+                  },
+                  "trust": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "runtimeId": {
+                    "type": "string"
+                  },
+                  "updatePolicy": {
+                    "type": "string"
+                  },
+                  "intervalMinutes": {
+                    "type": "integer"
+                  },
+                  "mediaTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}": {
+      "get": {
+        "summary": "读取源",
+        "operationId": "get_api_v1_sources_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "put": {
+        "summary": "编辑源元信息（端点与协议不可变）",
+        "operationId": "put_api_v1_sources_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string"
+                  },
+                  "network": {
+                    "type": "string"
+                  },
+                  "trust": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "type": "string"
+                  },
+                  "runtimeId": {
+                    "type": "string"
+                  },
+                  "updatePolicy": {
+                    "type": "string"
+                  },
+                  "intervalMinutes": {
+                    "type": "integer"
+                  },
+                  "mediaTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除无编排引用的源",
+        "operationId": "delete_api_v1_sources_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/sync": {
+      "post": {
+        "summary": "sync source",
+        "operationId": "post_api_v1_sources_id_sync",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/probe": {
+      "post": {
+        "summary": "probe source",
+        "operationId": "post_api_v1_sources_id_probe",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/approve": {
+      "post": {
+        "summary": "approve source",
+        "operationId": "post_api_v1_sources_id_approve",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/reject": {
+      "post": {
+        "summary": "reject source",
+        "operationId": "post_api_v1_sources_id_reject",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/enable": {
+      "post": {
+        "summary": "enable source",
+        "operationId": "post_api_v1_sources_id_enable",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/disable": {
+      "post": {
+        "summary": "disable source",
+        "operationId": "post_api_v1_sources_id_disable",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/quarantine": {
+      "post": {
+        "summary": "quarantine source",
+        "operationId": "post_api_v1_sources_id_quarantine",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/release": {
+      "post": {
+        "summary": "release source",
+        "operationId": "post_api_v1_sources_id_release",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/rollback": {
+      "post": {
+        "summary": "rollback source",
+        "operationId": "post_api_v1_sources_id_rollback",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/revisions": {
+      "get": {
+        "summary": "源 revisions",
+        "operationId": "get_api_v1_sources_id_revisions",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/probes": {
+      "get": {
+        "summary": "源 probes",
+        "operationId": "get_api_v1_sources_id_probes",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/revisions/{revision}/diff": {
+      "get": {
+        "summary": "版本 diff",
+        "operationId": "get_api_v1_sources_id_revisions_revision_diff",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/revisions/{revision}/raw": {
+      "get": {
+        "summary": "版本 raw",
+        "operationId": "get_api_v1_sources_id_revisions_revision_raw",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/catalogs/{id}": {
+      "put": {
+        "summary": "编辑 catalogs",
+        "operationId": "put_api_v1_catalogs_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/source-sets/{id}": {
+      "put": {
+        "summary": "编辑 source-sets",
+        "operationId": "put_api_v1_source_sets_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtimes/{id}": {
+      "put": {
+        "summary": "编辑 runtimes",
+        "operationId": "put_api_v1_runtimes_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogs/{id}/sync": {
+      "post": {
+        "summary": "同步目录到候选箱",
+        "operationId": "post_api_v1_catalogs_id_sync",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates/{id}/accept": {
+      "post": {
+        "summary": "accept candidate",
+        "operationId": "post_api_v1_candidates_id_accept",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates/{id}/ignore": {
+      "post": {
+        "summary": "ignore candidate",
+        "operationId": "post_api_v1_candidates_id_ignore",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates/{id}/block": {
+      "post": {
+        "summary": "block candidate",
+        "operationId": "post_api_v1_candidates_id_block",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/candidates/{id}/reset": {
+      "post": {
+        "summary": "reset candidate",
+        "operationId": "post_api_v1_candidates_id_reset",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/source-sets/{id}/publish": {
+      "post": {
+        "summary": "原子编译与发布",
+        "operationId": "post_api_v1_source_sets_id_publish",
+        "responses": {
+          "201": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/publications/{id}": {
+      "get": {
+        "summary": "读取不可变发布",
+        "operationId": "get_api_v1_publications_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/publications/{id}/rollback": {
+      "post": {
+        "summary": "移动稳定发布指针",
+        "operationId": "post_api_v1_publications_id_rollback",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bindings/{id}/rotate": {
+      "post": {
+        "summary": "rotate binding",
+        "operationId": "post_api_v1_bindings_id_rotate",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bindings/{id}/revoke": {
+      "post": {
+        "summary": "revoke binding",
+        "operationId": "post_api_v1_bindings_id_revoke",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtimes/{id}/test": {
+      "post": {
+        "summary": "test runtime",
+        "operationId": "post_api_v1_runtimes_id_test",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtimes/{id}/sync": {
+      "post": {
+        "summary": "sync runtime",
+        "operationId": "post_api_v1_runtimes_id_sync",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}/retry": {
+      "post": {
+        "summary": "重试失败任务",
+        "operationId": "post_api_v1_jobs_id_retry",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/secrets/{id}": {
+      "post": {
+        "summary": "替换加密请求头",
+        "operationId": "post_api_v1_secrets_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "仅读取已配置的请求头名称",
+        "operationId": "get_api_v1_secrets_id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/p/{token}/shadow.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_shadow_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/shadow.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_shadow_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/tvbox/store.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_tvbox_store_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/tvbox/store.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_tvbox_store_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/iptv/live.m3u": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_iptv_live_m3u",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/iptv/live.m3u": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_iptv_live_m3u",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/iptv/epg.xml": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_iptv_epg_xml",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/iptv/epg.xml": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_iptv_epg_xml",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/legado/books.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_legado_books_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/legado/books.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_legado_books_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/legado/rss.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_legado_rss_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/legado/rss.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_legado_rss_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/legado/tts.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_legado_tts_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/legado/tts.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_legado_tts_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/feeds.opml": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_feeds_opml",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/feeds.opml": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_feeds_opml",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/opds/": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_opds",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/opds/": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_opds",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/tvbox/{sourceId}.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_tvbox_sourceId_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/tvbox/{sourceId}.json": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_tvbox_sourceId_json",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/sources/{sourceId}": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_sources_sourceId",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/v/{publicationId}/sources/{sourceId}": {
+      "get": {
+        "summary": "读取客户端发布物（支持 ETag）",
+        "operationId": "get_p_token_v_publicationId_sources_sourceId",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": []
+      }
+    },
+    "/p/{token}/feedback": {
+      "post": {
+        "summary": "提交脱敏错误分类",
+        "operationId": "post_p_token_feedback",
+        "responses": {
+          "202": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sourceId",
+                  "code"
+                ],
+                "properties": {
+                  "sourceId": {
+                    "type": "string"
+                  },
+                  "publicationId": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "enum": [
+                      "timeout",
+                      "unavailable",
+                      "parse_error",
+                      "unauthorized",
+                      "unsupported"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "summary": "服务状态",
+        "operationId": "get_healthz",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "security": []
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "服务状态",
+        "operationId": "get_readyz",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "security": []
+      }
+    },
+    "/p/{token}/sources/{sourceId}/live.m3u": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_sources_sourceId_live_m3u",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/sources/{sourceId}/tvbox.json": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_sources_sourceId_tvbox_json",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/sources/{sourceId}/feeds.opml": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_sources_sourceId_feeds_opml",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/sources/{sourceId}/opds.xml": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_sources_sourceId_opds_xml",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/v/{publicationId}/sources/{sourceId}/live.m3u": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_v_publicationId_sources_sourceId_live_m3u",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/v/{publicationId}/sources/{sourceId}/tvbox.json": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_v_publicationId_sources_sourceId_tvbox_json",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/v/{publicationId}/sources/{sourceId}/feeds.opml": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_v_publicationId_sources_sourceId_feeds_opml",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/p/{token}/v/{publicationId}/sources/{sourceId}/opds.xml": {
+      "get": {
+        "summary": "读取 Bundle Provider 的独立源快照",
+        "operationId": "get_p_token_v_publicationId_sources_sourceId_opds_xml",
+        "security": [],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "publicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable source snapshot"
+          },
+          "304": {
+            "description": "Not modified; token verified"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          }
+        }
+      }
+    }
+  }
+}

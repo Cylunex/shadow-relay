@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://relay.example.com/contracts/shadow-media-bundle.schema.json",
+  "title": "Shadow Media Bundle v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "bundleId",
+    "publicationId",
+    "revision",
+    "generatedAt",
+    "providers",
+    "exports"
+  ],
+  "properties": {
+    "schema": {
+      "const": "shadow.media.bundle/v1"
+    },
+    "bundleId": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "publicationId": {
+      "type": "string"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "driver",
+          "mode",
+          "endpoint"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "driver": {
+            "enum": [
+              "emby",
+              "jellyfin",
+              "tvbox",
+              "m3u",
+              "xmltv",
+              "legado-hub",
+              "suwayomi",
+              "audiobookshelf",
+              "dispatcharr",
+              "miniflux",
+              "rss",
+              "atom",
+              "json-feed",
+              "opml",
+              "opds1",
+              "opds2"
+            ]
+          },
+          "mode": {
+            "enum": [
+              "compiled",
+              "runtime-backed",
+              "direct-client"
+            ]
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mediaTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "weight": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "role": {
+            "enum": [
+              "primary",
+              "backup",
+              "auxiliary"
+            ]
+          },
+          "health": {
+            "type": "string"
+          },
+          "score": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "credentialMode": {
+            "const": "client-local"
+          },
+          "constraints": {
+            "type": "object",
+            "properties": {
+              "devices": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "networks": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "timeoutMs": {
+                "type": "integer"
+              },
+              "maxConcurrency": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "exports": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "format": "uri"
+      }
+    }
+  },
+  "additionalProperties": false
+}
