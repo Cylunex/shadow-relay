@@ -1035,6 +1035,7 @@ td .source-name {
   border: 1px solid #dbe5cb;
   background: #edf3e4;
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   font-size: 11px;
   color: #6c8357;
@@ -1054,6 +1055,30 @@ td .source-name {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 21px;
+}
+.set-select-all {
+  margin: 0 0 16px;
+}
+.set-member-picker .toolbar {
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.set-member-picker .toolbar > input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.set-member-picker .toolbar select {
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.member-batch-settings {
+  margin: 16px 0;
+}
+.member-batch-settings .form-grid {
+  margin-top: 12px;
+}
+.batch-result {
+  margin: 16px 0;
 }
 .compact-card h3,
 .compact-card h2 {

@@ -36,6 +36,7 @@ import { LocalSourceEditor } from "./LocalSourceEditor";
 import { PodcastComposer } from "./PodcastComposer";
 import { DataTransfer } from "./DataTransfer";
 import { EnableSources } from "./EnableSources";
+import { SetMemberPicker } from "./SetMemberPicker";
 import {
   api,
   defaultMember,
@@ -1288,74 +1289,251 @@ function Discover({ data, open, busy, run }: PanelProps) {
   );
 }
 function Sets({ data, open, busy, run }: PanelProps) {
-  return data.sets.length ? (
-    <div className="set-grid">
-      {data.sets.map((set) => (
-        <section className="panel set-card" key={set.id}>
-          <div className="card-top">
-            <span className="source-icon">
-              <Layers3 size={22} />
-            </span>
-            <span className="tag">{set.members.length} 个源</span>
-          </div>
-          <h2>{set.name}</h2>
-          <p>{set.description || "为你的设备编排媒体入口"}</p>
-          <div className="set-members">
-            {[...set.members]
-              .sort((a, b) => b.priority - a.priority)
-              .slice(0, 6)
-              .map((m) => (
-                <div key={m.sourceId}>
-                  <span className="tree-line" />
-                  <b>
-                    {data.sources.find((s) => s.id === m.sourceId)?.name ??
-                      short(m.sourceId)}
-                  </b>
-                  <span>{label(m.role)}</span>
-                  <code>{m.priority}</code>
-                </div>
-              ))}
-          </div>
-          <small>
-            当前发布 <code>{short(set.currentPublication)}</code>
-          </small>
-          <div className="card-actions">
+  const [query, setQuery] = useState("");
+  const [publication, setPublication] = useState("");
+  const [automatic, setAutomatic] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [result, setResult] = useState<{
+    succeeded: number;
+    failures: string[];
+  }>();
+  const matches = data.sets.filter((set) => {
+    const names = set.members
+      .map((m) => data.sources.find((s) => s.id === m.sourceId))
+      .map((s) => `${s?.name ?? ""} ${s?.protocol ?? ""}`)
+      .join(" ");
+    return (
+      `${set.name} ${set.description} ${names}`
+        .toLowerCase()
+        .includes(query.trim().toLowerCase()) &&
+      (!publication ||
+        (publication === "published"
+          ? !!set.currentPublication
+          : !set.currentPublication)) &&
+      (!automatic ||
+        (automatic === "auto" ? set.autoPublish : !set.autoPublish))
+    );
+  });
+  const selectedSets = data.sets.filter((s) => selected.includes(s.id));
+  const allVisibleSelected =
+    matches.length > 0 && matches.every((s) => selected.includes(s.id));
+  const batch = (action: "publish" | "auto-on" | "auto-off") =>
+    run(async () => {
+      const failures: string[] = [];
+      const failedIDs: string[] = [];
+      let succeeded = 0;
+      setResult(undefined);
+      for (const set of selectedSets) {
+        try {
+          if (action === "publish")
+            await api(`source-sets/${set.id}/publish`, "POST");
+          else
+            await api(`source-sets/${set.id}`, "PUT", {
+              ...set,
+              autoPublish: action === "auto-on",
+            });
+          succeeded++;
+        } catch (e) {
+          failures.push(`${set.name}：${(e as Error).message}`);
+          failedIDs.push(set.id);
+        }
+      }
+      setSelected(failedIDs);
+      setResult({ succeeded, failures });
+    }, "批量操作已结束");
+  return (
+    <>
+      {data.sets.length > 0 && (
+        <>
+          <div className="toolbar">
+            <label className="search">
+              <Search size={16} />
+              <input
+                aria-label="搜索编排组"
+                placeholder="搜索组名、描述、成员或协议…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <select
+              aria-label="编排组发布筛选"
+              value={publication}
+              onChange={(e) => setPublication(e.target.value)}
+            >
+              <option value="">全部发布状态</option>
+              <option value="published">已发布</option>
+              <option value="unpublished">未发布</option>
+            </select>
+            <select
+              aria-label="编排组定时筛选"
+              value={automatic}
+              onChange={(e) => setAutomatic(e.target.value)}
+            >
+              <option value="">全部发布方式</option>
+              <option value="auto">定时发布</option>
+              <option value="manual">手动发布</option>
+            </select>
             <button
-              className="primary"
-              disabled={busy}
-              onClick={() =>
-                run(
-                  () => api(`source-sets/${set.id}/publish`, "POST"),
-                  "编译完成，已原子发布",
+              className="text-button"
+              onClick={() => {
+                setQuery("");
+                setPublication("");
+                setAutomatic("");
+              }}
+            >
+              清除筛选
+            </button>
+            <span className="result-count">{matches.length} 个编排组</span>
+          </div>
+          <label className="checkbox-label set-select-all">
+            <input
+              type="checkbox"
+              aria-label="选择当前筛选的编排组"
+              disabled={busy || !matches.length}
+              checked={allVisibleSelected}
+              onChange={(e) =>
+                setSelected(
+                  e.target.checked
+                    ? [...new Set([...selected, ...matches.map((s) => s.id)])]
+                    : selected.filter(
+                        (id) => !matches.some((s) => s.id === id),
+                      ),
                 )
               }
-            >
-              <Send size={14} />
-              编译并发布
-            </button>
-            <button
-              className="secondary"
-              onClick={() => open?.({ type: "set", set })}
-            >
-              编辑编排
-            </button>
+            />
+            选择当前筛选的 {matches.length} 个编排组
+          </label>
+          {selectedSets.length > 0 && (
+            <div className="selection-bar">
+              <span>
+                已选 {selectedSets.length} 个组（筛选内{" "}
+                {matches.filter((s) => selected.includes(s.id)).length} 个）
+              </span>
+              <button disabled={busy} onClick={() => batch("publish")}>
+                批量编译并发布
+              </button>
+              <button disabled={busy} onClick={() => batch("auto-on")}>
+                开启定时发布
+              </button>
+              <button disabled={busy} onClick={() => batch("auto-off")}>
+                关闭定时发布
+              </button>
+              <button disabled={busy} onClick={() => setSelected([])}>
+                取消选择
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      {result && (
+        <div className="batch-result" role="status">
+          成功 {result.succeeded} 个，失败 {result.failures.length} 个。
+          {result.failures.length > 0 && "失败项仍保持选中，可处理后重试。"}
+          <ErrorBox error={result.failures.join("；")} />
+        </div>
+      )}
+      {data.sets.length ? (
+        <>
+          {!matches.length && (
+            <div className="panel">
+              <Empty
+                title="没有匹配的编排组"
+                description="调整搜索或筛选条件。"
+              />
+            </div>
+          )}
+          <div className="set-grid">
+            {matches.map((set) => (
+              <section className="panel set-card" key={set.id}>
+                <div className="card-top">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      aria-label={"选择编排组 " + set.name}
+                      disabled={busy}
+                      checked={selected.includes(set.id)}
+                      onChange={(e) =>
+                        setSelected(
+                          e.target.checked
+                            ? [...selected, set.id]
+                            : selected.filter((id) => id !== set.id),
+                        )
+                      }
+                    />
+                    <span className="source-icon">
+                      <Layers3 size={22} />
+                    </span>
+                  </label>
+                  <span className="tag">{set.members.length} 个源</span>
+                </div>
+                <h2>{set.name}</h2>
+                <p>{set.description || "为你的设备编排媒体入口"}</p>
+                <p className="muted">
+                  {set.currentPublication ? "已发布" : "未发布"} ·{" "}
+                  {set.autoPublish ? "定时发布" : "手动发布"}
+                </p>
+                <div className="set-members">
+                  {[...set.members]
+                    .sort((a, b) => b.priority - a.priority)
+                    .slice(0, 6)
+                    .map((m) => (
+                      <div key={m.sourceId}>
+                        <span className="tree-line" />
+                        <b>
+                          {data.sources.find((s) => s.id === m.sourceId)
+                            ?.name ?? short(m.sourceId)}
+                        </b>
+                        <span>{label(m.role)}</span>
+                        <code>{m.priority}</code>
+                      </div>
+                    ))}
+                </div>
+                <small>
+                  当前发布 <code>{short(set.currentPublication)}</code>
+                </small>
+                <div className="card-actions">
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        () => api(`source-sets/${set.id}/publish`, "POST"),
+                        "编译完成，已原子发布",
+                      )
+                    }
+                  >
+                    <Send size={14} />
+                    编译并发布
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => open?.({ type: "set", set })}
+                  >
+                    编辑编排
+                  </button>
+                </div>
+              </section>
+            ))}
           </div>
-        </section>
-      ))}
-    </div>
-  ) : (
-    <div className="panel">
-      <Empty
-        title="把源连接成一套配置"
-        description="选择成员，设置顺序、主备关系和健康阈值，再编译成设备所需的订阅。"
-        action={
-          <button className="primary" onClick={() => open?.({ type: "set" })}>
-            <Plus size={15} />
-            新建编排组
-          </button>
-        }
-      />
-    </div>
+        </>
+      ) : (
+        <div className="panel">
+          <Empty
+            title="把源连接成一套配置"
+            description="选择成员，设置顺序、主备关系和健康阈值，再编译成设备所需的订阅。"
+            action={
+              <button
+                className="primary"
+                onClick={() => open?.({ type: "set" })}
+              >
+                <Plus size={15} />
+                新建编排组
+              </button>
+            }
+          />
+        </div>
+      )}
+    </>
   );
 }
 function Publications({ data, open, busy, run }: PanelProps) {
@@ -2671,155 +2849,161 @@ function SetDialog({
             </Field>
           </div>
         </div>
-        {sources.map((src) => {
-          const m = members.find((x) => x.sourceId === src.id);
-          const change = (k: string, v: unknown) =>
-            setMembers(
-              members.map((x) =>
-                x.sourceId === src.id ? { ...x, [k]: v } : x,
-              ),
-            );
-          return (
-            <div
-              className={"member-editor " + (m ? "selected" : "")}
-              key={src.id}
-            >
-              <div className="member-heading">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={!!m}
-                    onChange={(e) =>
-                      setMembers(
-                        e.target.checked
-                          ? [
-                              ...members,
-                              defaultMember(
-                                src.id,
-                                Math.max(0, 100 - members.length * 10),
-                              ),
-                            ]
-                          : members.filter((x) => x.sourceId !== src.id),
-                      )
-                    }
-                  />
-                  <strong>{src.name}</strong>
-                  <code>{src.protocol}</code>
-                </label>
-                <Badge value={src.health} />
-              </div>
-              {m && (
-                <>
-                  <div className="form-grid member-grid">
-                    <Field label="优先级">
-                      <input
-                        type="number"
-                        min={0}
-                        max={10000}
-                        value={m.priority}
-                        onChange={(e) =>
-                          change("priority", Number(e.target.value))
-                        }
-                      />
-                    </Field>
-                    <Field label="角色">
-                      <select
-                        value={m.role}
-                        onChange={(e) => change("role", e.target.value)}
-                      >
-                        {["primary", "backup", "auxiliary"].map((r) => (
-                          <option key={r} value={r}>
-                            {label(r)}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="最低健康分">
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={m.minScore}
-                        onChange={(e) =>
-                          change("minScore", Number(e.target.value))
-                        }
-                      />
-                    </Field>
-                    <Field label="权重">
-                      <input
-                        type="number"
-                        min={1}
-                        max={10000}
-                        value={m.weight}
-                        onChange={(e) =>
-                          change("weight", Number(e.target.value))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <details>
-                    <summary>
-                      过滤条件与客户端约束
-                      <ChevronDown size={13} />
-                    </summary>
-                    <div className="form-grid">
-                      {[
-                        ["mediaTypes", "媒体类型"],
-                        ["languages", "语言"],
-                        ["regions", "地区"],
-                        ["devices", "设备"],
-                        ["networks", "网络"],
-                      ].map(([k, n]) => (
-                        <Field key={k} label={n + "（逗号分隔）"}>
-                          <input
-                            defaultValue={(
-                              (m[k as keyof typeof m] as string[]) ?? []
-                            ).join(",")}
-                            onBlur={(e) =>
-                              change(
-                                k,
-                                e.target.value
-                                  .split(",")
-                                  .map((s) => s.trim())
-                                  .filter(Boolean),
-                              )
-                            }
-                          />
-                        </Field>
-                      ))}
-                      <Field label="超时（毫秒）">
+        <SetMemberPicker
+          sources={sources}
+          members={members}
+          change={setMembers}
+        >
+          {(src) => {
+            const m = members.find((x) => x.sourceId === src.id);
+            const change = (k: string, v: unknown) =>
+              setMembers(
+                members.map((x) =>
+                  x.sourceId === src.id ? { ...x, [k]: v } : x,
+                ),
+              );
+            return (
+              <div
+                className={"member-editor " + (m ? "selected" : "")}
+                key={src.id}
+              >
+                <div className="member-heading">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={!!m}
+                      onChange={(e) =>
+                        setMembers(
+                          e.target.checked
+                            ? [
+                                ...members,
+                                defaultMember(
+                                  src.id,
+                                  Math.max(0, 100 - members.length * 10),
+                                ),
+                              ]
+                            : members.filter((x) => x.sourceId !== src.id),
+                        )
+                      }
+                    />
+                    <strong>{src.name}</strong>
+                    <code>{src.protocol}</code>
+                  </label>
+                  <Badge value={src.health} />
+                </div>
+                {m && (
+                  <>
+                    <div className="form-grid member-grid">
+                      <Field label="优先级">
                         <input
                           type="number"
-                          min={100}
-                          max={120000}
-                          value={m.timeoutMs}
+                          min={0}
+                          max={10000}
+                          value={m.priority}
                           onChange={(e) =>
-                            change("timeoutMs", Number(e.target.value))
+                            change("priority", Number(e.target.value))
                           }
                         />
                       </Field>
-                      <Field label="最大并发">
+                      <Field label="角色">
+                        <select
+                          value={m.role}
+                          onChange={(e) => change("role", e.target.value)}
+                        >
+                          {["primary", "backup", "auxiliary"].map((r) => (
+                            <option key={r} value={r}>
+                              {label(r)}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="最低健康分">
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={m.minScore}
+                          onChange={(e) =>
+                            change("minScore", Number(e.target.value))
+                          }
+                        />
+                      </Field>
+                      <Field label="权重">
                         <input
                           type="number"
                           min={1}
-                          max={32}
-                          value={m.maxConcurrency}
+                          max={10000}
+                          value={m.weight}
                           onChange={(e) =>
-                            change("maxConcurrency", Number(e.target.value))
+                            change("weight", Number(e.target.value))
                           }
                         />
                       </Field>
                     </div>
-                    <small>
-                      设备和网络条件由 Bundle
-                      客户端选择时使用；无法表达这些约束的传统格式会排除该成员。
-                    </small>
-                  </details>
-                </>
-              )}
-            </div>
-          );
-        })}
+                    <details>
+                      <summary>
+                        过滤条件与客户端约束
+                        <ChevronDown size={13} />
+                      </summary>
+                      <div className="form-grid">
+                        {[
+                          ["mediaTypes", "媒体类型"],
+                          ["languages", "语言"],
+                          ["regions", "地区"],
+                          ["devices", "设备"],
+                          ["networks", "网络"],
+                        ].map(([k, n]) => (
+                          <Field key={k} label={n + "（逗号分隔）"}>
+                            <input
+                              defaultValue={(
+                                (m[k as keyof typeof m] as string[]) ?? []
+                              ).join(",")}
+                              onBlur={(e) =>
+                                change(
+                                  k,
+                                  e.target.value
+                                    .split(",")
+                                    .map((s) => s.trim())
+                                    .filter(Boolean),
+                                )
+                              }
+                            />
+                          </Field>
+                        ))}
+                        <Field label="超时（毫秒）">
+                          <input
+                            type="number"
+                            min={100}
+                            max={120000}
+                            value={m.timeoutMs}
+                            onChange={(e) =>
+                              change("timeoutMs", Number(e.target.value))
+                            }
+                          />
+                        </Field>
+                        <Field label="最大并发">
+                          <input
+                            type="number"
+                            min={1}
+                            max={32}
+                            value={m.maxConcurrency}
+                            onChange={(e) =>
+                              change("maxConcurrency", Number(e.target.value))
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <small>
+                        设备和网络条件由 Bundle
+                        客户端选择时使用；无法表达这些约束的传统格式会排除该成员。
+                      </small>
+                    </details>
+                  </>
+                )}
+              </div>
+            );
+          }}
+        </SetMemberPicker>
         {!sources.length && (
           <Empty
             title="先添加一个源"
