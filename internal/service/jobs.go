@@ -26,6 +26,8 @@ func enqueue(ctx context.Context, tx *store.Tx, id, kind, target string) error {
 	switch kind {
 	case "source.sync", "source.probe":
 		table = "sources"
+	case "set.publish":
+		table = "source_sets"
 	case "catalog.sync":
 		table = "catalogs"
 	case "runtime.test", "runtime.sync":
@@ -118,6 +120,18 @@ func (s *Service) schedule(ctx context.Context) error {
 			return e
 		}
 		for _, src := range sources {
+			if src.Enabled && src.ActiveRevision != "" && src.ProbeIntervalMinutes > 0 {
+				due, _ := time.Parse(time.RFC3339, src.NextProbe)
+				if !due.After(time.Now()) {
+					if e = enqueue(ctx, tx, model.ID("job"), "source.probe", src.ID); e != nil {
+						return e
+					}
+					src.NextProbe = time.Now().Add(time.Duration(src.ProbeIntervalMinutes) * time.Minute).UTC().Format(time.RFC3339)
+					if e = store.Put(ctx, tx, "sources", src.ID, src); e != nil {
+						return e
+					}
+				}
+			}
 			if !src.Enabled || src.URL == "" || src.UpdatePolicy == "pinned" || src.UpdatePolicy == "manual" {
 				continue
 			}
@@ -131,6 +145,24 @@ func (s *Service) schedule(ctx context.Context) error {
 			src.NextSync = time.Now().Add(time.Duration(src.IntervalMinutes) * time.Minute).UTC().Format(time.RFC3339)
 			if e = store.Put(ctx, tx, "sources", src.ID, src); e != nil {
 				return e
+			}
+		}
+		sets, e := store.List[model.SourceSet](ctx, tx, "source_sets")
+		if e != nil {
+			return e
+		}
+		for _, set := range sets {
+			if set.AutoPublish {
+				due, _ := time.Parse(time.RFC3339, set.NextPublish)
+				if !due.After(time.Now()) {
+					if e = enqueue(ctx, tx, model.ID("job"), "set.publish", set.ID); e != nil {
+						return e
+					}
+					set.NextPublish = time.Now().Add(15 * time.Minute).UTC().Format(time.RFC3339)
+					if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
+						return e
+					}
+				}
 			}
 		}
 		catalogs, e := store.List[model.Catalog](ctx, tx, "catalogs")
@@ -187,6 +219,8 @@ func (s *Service) work(parent context.Context) bool {
 		}
 	}()
 	switch kind {
+	case "set.publish":
+		_, e = s.publish(ctx, target, true)
 	case "source.sync":
 		e = s.SyncSource(ctx, target)
 	case "source.probe":

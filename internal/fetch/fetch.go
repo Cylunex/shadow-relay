@@ -3,6 +3,7 @@
 package fetch
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -124,14 +125,25 @@ func (f *Fetcher) client(p Policy) *http.Client {
 		return nil
 	}}
 }
-func (f *Fetcher) Get(ctx context.Context, raw string, p Policy, headers map[string]string, limit int64, partial bool) (out Result, err error) {
+func (f *Fetcher) Get(ctx context.Context, raw string, p Policy, headers map[string]string, limit int64, partial bool) (Result, error) {
+	return f.request(ctx, http.MethodGet, raw, p, headers, nil, limit, partial)
+}
+
+// PostJSON is reserved for explicit, authenticated runtime actions. Redirects are refused.
+func (f *Fetcher) PostJSON(ctx context.Context, raw string, p Policy, headers map[string]string, body []byte, limit int64) (Result, error) {
+	if len(body) > 2<<20 {
+		return Result{}, errors.New("runtime request body too large")
+	}
+	return f.request(ctx, http.MethodPost, raw, p, headers, body, limit, false)
+}
+func (f *Fetcher) request(ctx context.Context, method, raw string, p Policy, headers map[string]string, body []byte, limit int64, partial bool) (out Result, err error) {
 	if e := security.SafeURL(raw); e != nil {
 		return out, e
 	}
 	if e := security.ValidateHeaders(headers); e != nil {
 		return out, e
 	}
-	req, e := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
+	req, e := http.NewRequestWithContext(ctx, method, raw, bytes.NewReader(body))
 	if e != nil {
 		return out, errors.New("invalid request")
 	}
@@ -142,7 +154,13 @@ func (f *Fetcher) Get(ctx context.Context, raw string, p Policy, headers map[str
 	if partial {
 		req.Header.Set("Range", fmt.Sprintf("bytes=0-%d", limit-1))
 	}
-	resp, e := f.client(p).Do(req)
+	client := f.client(p)
+	if method == http.MethodPost {
+		req.Header.Set("Content-Type", "application/json")
+		client.Timeout = 65 * time.Second
+		client.CheckRedirect = func(*http.Request, []*http.Request) error { return errors.New("runtime POST redirects are forbidden") }
+	}
+	resp, e := client.Do(req)
 	if e != nil {
 		return out, errors.New("upstream request failed (network, TLS or policy)")
 	}

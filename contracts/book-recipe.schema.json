@@ -1,0 +1,129 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "shadow.book.recipe/v1"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "baseUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "domains": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string"
+      }
+    },
+    "language": {
+      "type": "string"
+    },
+    "maxPages": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "minIntervalMs": {
+      "type": "integer",
+      "minimum": 1200,
+      "maximum": 60000
+    },
+    "smokeKeyword": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "search": {
+      "$ref": "#/$defs/stage"
+    },
+    "detail": {
+      "$ref": "#/$defs/stage"
+    },
+    "toc": {
+      "$ref": "#/$defs/stage"
+    },
+    "chapter": {
+      "$ref": "#/$defs/stage"
+    }
+  },
+  "required": [
+    "schema",
+    "name",
+    "baseUrl",
+    "search",
+    "detail",
+    "toc",
+    "chapter"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Shadow Relay native book recipe",
+  "additionalProperties": false,
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "properties": {
+        "css": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "path": {
+          "type": "string"
+        },
+        "attr": {
+          "type": "string"
+        },
+        "html": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST"
+          ]
+        },
+        "form": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "list": {
+          "$ref": "#/$defs/selector"
+        },
+        "fields": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {
+            "$ref": "#/$defs/selector"
+          }
+        },
+        "next": {
+          "$ref": "#/$defs/selector"
+        },
+        "reverse": {
+          "type": "boolean"
+        },
+        "removeCss": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# Optional companion only. Start it explicitly after configuring an existing Hub.
+services:
+  hub-bridge:
+    profiles: [hub-bridge]
+    build:
+      context: .
+      dockerfile: Dockerfile.bridge
+    restart: unless-stopped
+    # Must match the owner that reads the mounted plugin files in Hub.
+    user: "${RELAY_BRIDGE_UID:-65532}:${RELAY_BRIDGE_GID:-65532}"
+    environment:
+      RELAY_BRIDGE_SUBSCRIPTION_URL: ${RELAY_BRIDGE_SUBSCRIPTION_URL:?Set a scoped hub/plugins.json binding URL}
+      RELAY_BRIDGE_NETWORK: ${RELAY_BRIDGE_NETWORK:-internet}
+      RELAY_BRIDGE_TRUSTED_CIDRS: ${RELAY_BRIDGE_TRUSTED_CIDRS:-}
+      RELAY_BRIDGE_HUB_URL: ${RELAY_BRIDGE_HUB_URL:-}
+      RELAY_BRIDGE_HUB_NETWORK: ${RELAY_BRIDGE_HUB_NETWORK:-trusted-lan}
+      RELAY_BRIDGE_HUB_HEADERS: ${RELAY_BRIDGE_HUB_HEADERS:-}
+    volumes:
+      - ${RELAY_BRIDGE_PLUGIN_PARENT:?Set a dedicated plugin parent shared with Hub}:/plugins
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: [/tmp:rw,noexec,nosuid,size=16m]
+    mem_limit: 256m
+    pids_limit: 32

@@ -1,4 +1,7 @@
 export type Source = {
+  probeIntervalMinutes?: number;
+  smokeKeyword?: string;
+  hubPluginId?: string;
   id: string;
   name: string;
   protocol: string;
@@ -23,6 +26,7 @@ export type Source = {
   createdAt: string;
 };
 export type Item = {
+  logo?: string;
   id?: string;
   name: string;
   url?: string;
@@ -77,7 +81,20 @@ export type Member = {
   timeoutMs: number;
   maxConcurrency: number;
 };
+export type ChannelRule = {
+  sourceId?: string;
+  match: string;
+  name?: string;
+  group?: string;
+  tvgId?: string;
+  logo?: string;
+  hide: boolean;
+};
 export type SourceSet = {
+  channelRules?: ChannelRule[];
+  autoPublish?: boolean;
+  minAvailable?: number;
+  maxExcludedPercent?: number;
   id: string;
   name: string;
   description: string;

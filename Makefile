@@ -2,6 +2,7 @@
 build: web
 	mkdir -p bin
 	go build -trimpath -o bin/relay ./cmd/relay
+	go build -trimpath -o bin/relay-bridge ./cmd/relay-bridge
 web:
 	npm ci --prefix web
 	npm run build --prefix web

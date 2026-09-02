@@ -1,5 +1,19 @@
 # 客户端订阅契约
 
+## 新增发布格式
+
+| 格式 | 消费者与语义 |
+|---|---|
+| `hub/plugins.json` | relay-bridge 的声明式原生插件清单；只给专门同步绑定此权限，不直接导入阅读 |
+| `legado/replace.json` | 阅读净化规则；与 books/rss/tts 一样可一键导入 |
+| `iptv/live.txt` | 按 `分组,#genre#` 输出的直播清单，应用与 M3U 相同的频道覆盖规则 |
+| `podcasts/feed.xml` | 编排组内播客音频的单条 RSS；音频仍从原 HTTP URL 获取 |
+| `mihon/repos.json` | 原仓地址与公开元数据目录；不是可安装的合并扩展仓，需在 Mihon 注册原始仓 URL |
+
+播客还会生成单源 `sources/{id}/podcast.xml`，由 `feeds.opml` 或 Bundle 引用；这两种格式权限均允许获取所引用的单源播客文件。IPTV 在发布物含 XMLTV 时设置 `url-tvg`；只授权 M3U 的绑定仍需要额外勾选 `iptv/epg.xml` 才能获取节目单。
+
+阅读深链遵循 `yuedu://bookSource|rsssource|httpTTS|replaceRule/importonline?src=<URL编码>`。二维码和 HTTP 订阅令牌都属于持有者凭据。漫画仓入口指向上游原仓，Relay 不截留或替换扩展签名信任。
+
 ## 两种地址
 
 - 稳定订阅：`GET /p/{token}/shadow.json`，跟随绑定所属编排组的当前发布指针。

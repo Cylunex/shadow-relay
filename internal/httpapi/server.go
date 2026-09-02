@@ -211,6 +211,7 @@ func listRoute[T any](s *Server, mux *http.ServeMux, path, table string, filter 
 }
 func (s *Server) routes(mux *http.ServeMux) {
 	svc := s.Service
+	s.workshopRoutes(mux)
 	mux.HandleFunc("GET /api/v1/adapters", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"adapters": adapter.Describe(), "connectors": service.Connectors, "formats": service.Formats})
 	})

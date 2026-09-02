@@ -29,18 +29,21 @@ type Fetcher interface {
 var ErrConflict = errors.New("configuration changed; refresh and retry")
 
 type Input struct {
-	Name            string            `json:"name"`
-	URL             string            `json:"url"`
-	Content         string            `json:"content"`
-	Protocol        string            `json:"protocol"`
-	Network         string            `json:"network"`
-	Trust           string            `json:"trust"`
-	Mode            string            `json:"mode"`
-	RuntimeID       string            `json:"runtimeId"`
-	MediaTypes      []string          `json:"mediaTypes"`
-	UpdatePolicy    string            `json:"updatePolicy"`
-	IntervalMinutes int               `json:"intervalMinutes"`
-	Headers         map[string]string `json:"headers"`
+	ProbeIntervalMinutes int               `json:"probeIntervalMinutes"`
+	SmokeKeyword         string            `json:"smokeKeyword"`
+	HubPluginID          string            `json:"hubPluginId"`
+	Name                 string            `json:"name"`
+	URL                  string            `json:"url"`
+	Content              string            `json:"content"`
+	Protocol             string            `json:"protocol"`
+	Network              string            `json:"network"`
+	Trust                string            `json:"trust"`
+	Mode                 string            `json:"mode"`
+	RuntimeID            string            `json:"runtimeId"`
+	MediaTypes           []string          `json:"mediaTypes"`
+	UpdatePolicy         string            `json:"updatePolicy"`
+	IntervalMinutes      int               `json:"intervalMinutes"`
+	Headers              map[string]string `json:"headers"`
 }
 
 func jsonBytes(v any) []byte { b, _ := json.Marshal(v); return b }
@@ -78,6 +81,12 @@ func defaults(in *Input) error {
 		if e := security.SafeURL(in.URL); e != nil {
 			return e
 		}
+	}
+	if in.ProbeIntervalMinutes < 0 || in.ProbeIntervalMinutes > 43200 || (in.ProbeIntervalMinutes > 0 && in.ProbeIntervalMinutes < 15) {
+		return errors.New("probe interval must be zero or 15–43200 minutes")
+	}
+	if len(in.SmokeKeyword) > 120 || len(in.HubPluginID) > 96 || strings.ContainsAny(in.HubPluginID, "/?# ") {
+		return errors.New("invalid smoke keyword or Hub plugin ID")
 	}
 	return security.ValidateHeaders(in.Headers)
 }
@@ -184,7 +193,7 @@ func newSource(in Input, n model.Normalized) model.Source {
 		if _, ok := Connectors[n.Protocol]; ok {
 			mode = "direct-client"
 		}
-		if n.RequiresRuntime && !strings.HasPrefix(n.Protocol, "legado-") {
+		if n.RequiresRuntime && !strings.HasPrefix(n.Protocol, "legado-") && !slices.Contains([]string{"so-novel", "relay-book", "mihon-repo"}, n.Protocol) {
 			mode = "catalog-only"
 		}
 		if in.RuntimeID != "" {
@@ -195,7 +204,7 @@ func newSource(in Input, n model.Normalized) model.Source {
 	if len(in.MediaTypes) > 0 {
 		media = in.MediaTypes
 	}
-	return model.Source{ID: model.ID("src"), Name: in.Name, Protocol: n.Protocol, MediaTypes: media, Capabilities: n.Capabilities, Mode: mode, Trust: in.Trust, Network: in.Network, UpdatePolicy: in.UpdatePolicy, IntervalMinutes: in.IntervalMinutes, URL: in.URL, RuntimeID: in.RuntimeID, Health: "unknown", CreatedAt: model.Now(), UpdatedAt: model.Now()}
+	return model.Source{ProbeIntervalMinutes: in.ProbeIntervalMinutes, SmokeKeyword: in.SmokeKeyword, HubPluginID: in.HubPluginID, ID: model.ID("src"), Name: in.Name, Protocol: n.Protocol, MediaTypes: media, Capabilities: n.Capabilities, Mode: mode, Trust: in.Trust, Network: in.Network, UpdatePolicy: in.UpdatePolicy, IntervalMinutes: in.IntervalMinutes, URL: in.URL, RuntimeID: in.RuntimeID, Health: "unknown", CreatedAt: model.Now(), UpdatedAt: model.Now()}
 }
 
 var mediaTypes = []string{"video.movie", "video.series", "video.short", "video.live", "text.novel", "text.ebook", "text.article", "image.comic", "audio.audiobook", "audio.podcast", "audio.music", "audio.radio", "speech.tts", "support.metadata", "support.subtitle", "support.danmaku", "support.epg", "support.lyric"}
@@ -229,7 +238,7 @@ func (s *Service) validateRuntime(ctx context.Context, q store.Reader, src model
 	} else if src.Mode == "runtime-backed" {
 		return errors.New("runtime-backed source requires a runtime")
 	}
-	if b, e := adapter.Base(src.Protocol); e == nil && b.RequiresRuntime && src.Mode != "runtime-backed" && src.Mode != "catalog-only" && !(strings.HasPrefix(src.Protocol, "legado-") && src.Mode == "compiled") {
+	if b, e := adapter.Base(src.Protocol); e == nil && b.RequiresRuntime && src.Mode != "runtime-backed" && src.Mode != "catalog-only" && !((strings.HasPrefix(src.Protocol, "legado-") || slices.Contains([]string{"so-novel", "relay-book", "mihon-repo"}, src.Protocol)) && src.Mode == "compiled") {
 		return errors.New("executable rules require an isolated runtime")
 	}
 	return nil
@@ -255,6 +264,10 @@ func (s *Service) EditSource(ctx context.Context, id string, in Input) (model.So
 		v.Network = in.Network
 		v.UpdatePolicy = in.UpdatePolicy
 		v.IntervalMinutes = in.IntervalMinutes
+		v.ProbeIntervalMinutes = in.ProbeIntervalMinutes
+		v.SmokeKeyword = in.SmokeKeyword
+		v.HubPluginID = in.HubPluginID
+		v.NextProbe = ""
 		v.RuntimeID = in.RuntimeID
 		if in.Mode != "" {
 			v.Mode = in.Mode
@@ -431,7 +444,7 @@ func (s *Service) SyncSource(ctx context.Context, id string) error {
 			}
 			return s.recordFailure(ctx, src, "structure_invalid", e)
 		}
-		if src.UpdatePolicy == "auto" {
+		if src.UpdatePolicy == "auto" && !slices.Contains([]string{"legado-book", "so-novel", "relay-book"}, src.Protocol) {
 			p, _ := s.sample(ctx, src, n)
 			sample = &p
 		}
@@ -580,6 +593,9 @@ func (s *Service) sample(ctx context.Context, src model.Source, n model.Normaliz
 		return p, e
 	}
 	policy := fetch.Policy{Network: src.Network, Trust: src.Trust}
+	if src.RuntimeID != "" && src.SmokeKeyword != "" && slices.Contains([]string{"legado-book", "so-novel", "relay-book", "legado-hub"}, src.Protocol) {
+		return s.ProbeHub(ctx, src, n)
+	}
 	if src.RuntimeID != "" {
 		e = s.TestRuntime(ctx, src.RuntimeID, false)
 		p.Level = "service"
@@ -638,7 +654,7 @@ func (s *Service) sample(ctx context.Context, src model.Source, n model.Normaliz
 					break
 				}
 			}
-		case "rss", "atom", "json-feed", "opds1", "opds2":
+		case "rss", "atom", "json-feed", "opds1", "opds2", "podcast":
 			for _, item := range n.Items {
 				if item.URL != "" {
 					_, e = s.Fetch.Get(ctx, item.URL, policy, nil, 4096, true)

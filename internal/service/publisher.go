@@ -18,17 +18,28 @@ import (
 	"github.com/Cylunex/shadow-relay/internal/store"
 )
 
-var Formats = []string{"shadow.json", "tvbox/store.json", "iptv/live.m3u", "iptv/epg.xml", "legado/books.json", "legado/rss.json", "legado/tts.json", "feeds.opml", "opds/"}
+var Formats = []string{"shadow.json", "podcasts/feed.xml", "tvbox/store.json", "iptv/live.m3u", "iptv/epg.xml", "legado/books.json", "legado/replace.json", "hub/plugins.json", "mihon/repos.json", "iptv/live.txt", "legado/rss.json", "legado/tts.json", "feeds.opml", "opds/"}
 
 const BasePlaceholder = "__RELAY_PUBLICATION_BASE__"
 
 func (s *Service) SaveSet(ctx context.Context, id string, set model.SourceSet) (model.SourceSet, error) {
+	expectedUpdatedAt := set.UpdatedAt
 	if e := requireName(set.Name); e != nil {
 		return set, e
 	}
 	if len(set.Description) > 2000 || len(set.Members) > 500 {
 		return set, errors.New("source set exceeds limit")
 	}
+	if e := validateChannelRules(set.ChannelRules); e != nil {
+		return set, e
+	}
+	if set.MinAvailable == 0 {
+		set.MinAvailable = 1
+	}
+	if set.MinAvailable < 1 || set.MaxExcludedPercent < 0 || set.MaxExcludedPercent > 100 {
+		return set, errors.New("invalid automatic publication safety limits")
+	}
+	set.PublishSignature = ""
 	set.ID = id
 	if id == "" {
 		set.ID = model.ID("set")
@@ -42,8 +53,12 @@ func (s *Service) SaveSet(ctx context.Context, id string, set model.SourceSet) (
 			if e != nil {
 				return e
 			}
+			if expectedUpdatedAt != "" && expectedUpdatedAt != old.UpdatedAt {
+				return ErrConflict
+			}
 			set.CurrentPublication = old.CurrentPublication
 			set.PreviousPublication = old.PreviousPublication
+			set.PublishSignature = old.PublishSignature
 		}
 		seen := map[string]bool{}
 		for i := range set.Members {
@@ -96,6 +111,9 @@ type selected struct {
 }
 
 func (s *Service) Publish(ctx context.Context, id string) (model.Publication, error) {
+	return s.publish(ctx, id, false)
+}
+func (s *Service) publish(ctx context.Context, id string, automatic bool) (model.Publication, error) {
 	var pub model.Publication
 	e := s.DB.Write(ctx, func(tx *store.Tx) error {
 		set, e := store.Get[model.SourceSet](ctx, tx, "source_sets", id)
@@ -167,6 +185,14 @@ func (s *Service) Publish(ctx context.Context, id string) (model.Publication, er
 		if len(items) == 0 {
 			return errors.New("no eligible sources; current publication is preserved")
 		}
+		if automatic && (!set.AutoPublish || len(items) < set.MinAvailable || (len(excluded)*100 > set.MaxExcludedPercent*len(members))) {
+			return errors.New("automatic publication held by availability policy")
+		}
+		signature := security.Hash(jsonBytes(map[string]any{"name": set.Name, "description": set.Description, "members": members, "channelRules": set.ChannelRules, "items": publicationInputs(items), "excluded": excluded}))
+		if automatic && signature == set.PublishSignature && set.CurrentPublication != "" {
+			pub, e = store.Get[model.Publication](ctx, tx, "publications", set.CurrentPublication)
+			return e
+		}
 		pub, e = Compile(set, items, excluded)
 		if e != nil {
 			return e
@@ -174,6 +200,7 @@ func (s *Service) Publish(ctx context.Context, id string) (model.Publication, er
 		if e = store.Insert(ctx, tx, "publications", pub.ID, pub); e != nil {
 			return e
 		}
+		set.PublishSignature = signature
 		set.PreviousPublication = set.CurrentPublication
 		set.CurrentPublication = pub.ID
 		set.UpdatedAt = model.Now()
@@ -226,7 +253,7 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 	providers := []any{}
 	channels, feeds, books := []model.Item{}, []model.Item{}, []model.Item{}
 	tvStores := []any{}
-	legado := map[string][]any{"legado-book": {}, "legado-rss": {}, "legado-tts": {}}
+	legado := map[string][]any{"legado-book": {}, "legado-rss": {}, "legado-tts": {}, "legado-replace": {}}
 	xmlDocs := []string{}
 	seen := map[string]bool{}
 	add := func(path, typ, body string) {
@@ -246,6 +273,9 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		}
 		endpoint := v.Endpoint
 		its := filtered(n.Items, m)
+		if src.Protocol == "m3u" {
+			its = channelOverrides(its, src.ID, set.ChannelRules)
+		}
 		if src.Mode == "compiled" && src.Protocol != "shadow-bundle" {
 			path, typ, body, err := sourceArtifact(src, n, its, p.CreatedAt)
 			if err != nil {
@@ -259,6 +289,9 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		driver := v.Driver
 		if src.Mode == "compiled" && src.Protocol == "opds2" {
 			driver = "opds1"
+		}
+		if src.Protocol == "podcast" && src.Mode == "compiled" {
+			driver = "rss"
 		}
 		provider := map[string]any{"id": src.ID, "name": src.Name, "mediaTypes": media, "driver": driver, "mode": src.Mode, "endpoint": endpoint, "capabilities": src.Capabilities, "priority": m.Priority, "weight": m.Weight, "role": m.Role, "health": src.Health, "score": src.Score, "credentialMode": "client-local", "revision": v.Revision.ID, "constraints": map[string]any{"devices": m.Devices, "networks": m.Networks, "timeoutMs": m.TimeoutMS, "maxConcurrency": m.MaxConcurrency}}
 		if src.Protocol == "shadow-bundle" {
@@ -312,7 +345,7 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 					tvStores = append(tvStores, u)
 				}
 			}
-		case "legado-book", "legado-rss", "legado-tts":
+		case "legado-book", "legado-rss", "legado-tts", "legado-replace":
 			var entries []any
 			if e := json.Unmarshal(n.Config, &entries); e != nil {
 				return p, e
@@ -324,6 +357,11 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 					seen[key] = true
 				}
 			}
+		case "podcast":
+			n.Items = its
+			path := "sources/" + src.ID + "/podcast.xml"
+			add(path, "application/rss+xml", podcastBody(n, BasePlaceholder+"/"+path))
+			feeds = append(feeds, model.Item{Name: src.Name, URL: BasePlaceholder + "/" + path})
 		case "opml":
 			feeds = append(feeds, its...)
 		case "rss", "atom", "json-feed":
@@ -346,7 +384,12 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		}
 	}
 	if len(channels) > 0 {
-		add("iptv/live.m3u", "audio/x-mpegurl", playlistBody(channels))
+		body := playlistBody(channels)
+		if len(xmlDocs) > 0 {
+			body = strings.Replace(body, "#EXTM3U", "#EXTM3U url-tvg=\""+BasePlaceholder+"/iptv/epg.xml\"", 1)
+		}
+		add("iptv/live.m3u", "audio/x-mpegurl", body)
+		add("iptv/live.txt", "text/plain; charset=utf-8", txtBody(channels))
 	}
 	if len(xmlDocs) > 0 {
 		body, e := mergeXMLTV(xmlDocs)
@@ -356,9 +399,21 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		add("iptv/epg.xml", "application/xml", body)
 	}
 	if len(tvStores) > 0 {
+		unique := []any{}
+		known := map[string]bool{}
+		for _, store := range tvStores {
+			var v map[string]any
+			_ = json.Unmarshal(jsonBytes(store), &v)
+			u, _ := v["url"].(string)
+			if u != "" && !known[u] {
+				known[u] = true
+				unique = append(unique, store)
+			}
+		}
+		tvStores = unique
 		add("tvbox/store.json", "application/json", string(jsonBytes(map[string]any{"urls": tvStores})))
 	}
-	for proto, path := range map[string]string{"legado-book": "legado/books.json", "legado-rss": "legado/rss.json", "legado-tts": "legado/tts.json"} {
+	for proto, path := range map[string]string{"legado-book": "legado/books.json", "legado-rss": "legado/rss.json", "legado-tts": "legado/tts.json", "legado-replace": "legado/replace.json"} {
 		if len(legado[proto]) > 0 {
 			add(path, "application/json", string(jsonBytes(legado[proto])))
 		}
@@ -368,6 +423,9 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 	}
 	if len(books) > 0 {
 		add("opds/", "application/atom+xml;profile=opds-catalog", opdsBody(set.ID, set.Name, p.CreatedAt, books))
+	}
+	if e := extendedArtifacts(set.ID, set.Name, p.CreatedAt, items, add); e != nil {
+		return p, e
 	}
 	if len(providers) == 0 && len(p.Artifacts) == 0 {
 		return p, errors.New("publication has no usable providers or exports")
@@ -561,6 +619,9 @@ func (s *Service) Resolve(ctx context.Context, token, publication, path string) 
 	if strings.HasPrefix(path, "sources/") && slices.Contains(b.Formats, "shadow.json") {
 		allowed = true
 	}
+	if strings.HasPrefix(path, "sources/") && strings.HasSuffix(path, "/podcast.xml") && slices.Contains(b.Formats, "feeds.opml") {
+		allowed = true
+	}
 	if !allowed {
 		return model.Artifact{}, store.ErrNotFound
 	}
@@ -625,6 +686,10 @@ func (s *Service) Feedback(ctx context.Context, token string, in model.Feedback)
 func sourceArtifact(src model.Source, n model.Normalized, items []model.Item, created string) (path, typ, body string, err error) {
 	path = "sources/" + src.ID
 	switch src.Protocol {
+	case "podcast":
+		n.Items = items
+		path := "sources/" + src.ID + "/podcast.xml"
+		return path, "application/rss+xml", podcastBody(n, BasePlaceholder+"/"+path), nil
 	case "m3u":
 		path += "/live.m3u"
 		typ = "audio/x-mpegurl"

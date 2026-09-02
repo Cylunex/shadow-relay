@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Shadow Relay API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "私有源控制面。管理接口使用 Bearer 管理令牌，订阅令牌仅授权相应编排组及格式。完整语义见 docs/。"
   },
   "security": [
@@ -66,8 +66,99 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "probeIntervalMinutes": {
+            "type": "integer",
+            "anyOf": [
+              {
+                "const": 0
+              },
+              {
+                "minimum": 15,
+                "maximum": 43200
+              }
+            ]
+          },
+          "smokeKeyword": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "hubPluginId": {
+            "type": "string",
+            "maxLength": 96
           }
         }
+      },
+      "SourceSetInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "maxItems": 500,
+            "items": {
+              "type": "object"
+            }
+          },
+          "autoPublish": {
+            "type": "boolean",
+            "default": false
+          },
+          "minAvailable": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "maxExcludedPercent": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "channelRules": {
+            "type": "array",
+            "maxItems": 2000,
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string"
+                },
+                "match": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "group": {
+                  "type": "string"
+                },
+                "logo": {
+                  "type": "string"
+                },
+                "tvgId": {
+                  "type": "string"
+                },
+                "hide": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "match"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "members"
+        ]
       }
     }
   },
@@ -201,7 +292,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/SourceSetInput"
               }
             }
           }
@@ -1328,7 +1419,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "$ref": "#/components/schemas/SourceSetInput"
               }
             }
           }
@@ -3184,6 +3275,321 @@
           },
           "404": {
             "description": "Not found or not authorized"
+          }
+        }
+      }
+    },
+    "/api/v1/book-tools/convert": {
+      "post": {
+        "summary": "Inspect book plugin compatibility",
+        "operationId": "post_api_v1_book_tools_convert",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/book-tools/scaffold": {
+      "post": {
+        "summary": "Download a native Hub plugin scaffold",
+        "operationId": "post_api_v1_book_tools_scaffold",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./book-recipe.schema.json"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/book-plugins": {
+      "get": {
+        "summary": "Read source plugin compatibility",
+        "operationId": "get_api_v1_sources_id_book_plugins",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/hub.zip": {
+      "get": {
+        "summary": "Download compatible native Hub plugins",
+        "operationId": "get_api_v1_sources_id_hub_zip",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "revision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/sources/{id}/content": {
+      "post": {
+        "summary": "Stage local source content",
+        "operationId": "post_api_v1_sources_id_content",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "expectedUpdatedAt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/runtimes/{id}/hub-plugins": {
+      "get": {
+        "summary": "Read installed Hub plugins",
+        "operationId": "get_api_v1_runtimes_id_hub_plugins",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/runtimes/{id}/hub-reload": {
+      "post": {
+        "summary": "Explicitly reload Hub plugins",
+        "operationId": "post_api_v1_runtimes_id_hub_reload",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recipes": {
+      "get": {
+        "summary": "List reference coverage and onboarding recipes",
+        "operationId": "get_api_v1_recipes",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation or upstream failure"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "409": {
+            "description": "Configuration conflict"
           }
         }
       }

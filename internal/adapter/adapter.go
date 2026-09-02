@@ -26,6 +26,10 @@ type Description struct {
 }
 
 var registry = []Description{
+	{"legado-replace", []string{"text.novel"}, []string{"cleanup"}, true},
+	{"so-novel", []string{"text.novel"}, []string{"search", "detail", "toc", "chapter"}, true},
+	{"relay-book", []string{"text.novel"}, []string{"search", "detail", "toc", "chapter"}, true},
+	{"podcast", []string{"audio.podcast"}, []string{"browse", "stream"}, false},
 	{"m3u", []string{"video.live"}, []string{"live", "stream"}, false},
 	{"xmltv", []string{"support.epg"}, []string{"epg"}, false},
 	{"tvbox", []string{"video.movie", "video.series"}, []string{"browse", "search", "stream"}, false},
@@ -204,18 +208,29 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 	if e != nil {
 		return model.Normalized{}, e
 	}
-	if e = security.ValidateDocument(b); e != nil {
-		return model.Normalized{}, e
-	}
 	var v any
 	if e = json.Unmarshal(b, &v); e != nil {
 		return model.Normalized{}, errors.New("invalid JSON configuration")
+	}
+	// so-novel cookie-bearing entries stay visible as blocked conversion candidates;
+	// secrets remain only in the encrypted raw snapshot, never normalized exports.
+	scrubSoNovel(v)
+	if e = security.ValidateDocument(raw(v)); e != nil {
+		return model.Normalized{}, e
 	}
 	o := object(v)
 	a := list(v)
 	protocol := hint
 	if protocol == "" {
 		switch {
+		case o["schema"] == "shadow.book.recipe/v1":
+			protocol = "relay-book"
+		case o["schema"] == "shadow.podcast/v1":
+			protocol = "podcast"
+		case o["search"] != nil && o["toc"] != nil:
+			protocol = "so-novel"
+		case o["pattern"] != nil && o["replacement"] != nil:
+			protocol = "legado-replace"
 		case o["schema"] == "shadow.media.bundle/v1":
 			protocol = "shadow-bundle"
 		case o["sites"] != nil || o["urls"] != nil:
@@ -224,11 +239,19 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			protocol = "json-feed"
 		case o["publications"] != nil || o["navigation"] != nil:
 			protocol = "opds2"
-		case o["meta"] != nil && o["sources"] != nil:
+		case o["meta"] != nil && (o["sources"] != nil || o["index_v2"] != nil):
 			protocol = "mihon-repo"
 		case len(a) > 0:
 			first := object(a[0])
 			switch {
+			case first["pattern"] != nil && first["replacement"] != nil:
+				protocol = "legado-replace"
+			case first["schema"] == "shadow.book.recipe/v1":
+				protocol = "relay-book"
+			case first["search"] != nil && first["toc"] != nil:
+				protocol = "so-novel"
+			case first["pkg"] != nil && first["apk"] != nil:
+				protocol = "mihon-repo"
 			case first["bookSourceUrl"] != nil:
 				protocol = "legado-book"
 			case first["sourceUrl"] != nil:
@@ -336,13 +359,28 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 		for _, x := range a {
 			s := object(x)
 			name, u := str(s["name"]), str(s["url"])
+			if name != "" && (s["m3u-link"] != nil || s["txt-link"] != nil) {
+				for _, kind := range []string{"m3u", "txt"} {
+					if link := str(s[kind+"-link"]); link != "" {
+						n.Items = append(n.Items, model.Item{Name: name + " · " + strings.ToUpper(kind) + " · " + str(s["type"]), URL: catalogLink(base, link), Group: str(s["type"]), Data: raw(map[string]string{"protocol": "m3u"})})
+					}
+				}
+				continue
+			}
 			if u == "" {
 				u = str(s["sourceUrl"])
+			}
+			if u == "" {
+				u = str(s["link"])
 			}
 			if name == "" || u == "" {
 				return n, errors.New("catalog entries require name and url")
 			}
-			n.Items = append(n.Items, model.Item{Name: name, URL: resolve(base, u), Group: str(s["category"]), Data: raw(map[string]any{"protocol": str(s["protocol"])})})
+			proto := str(s["protocol"])
+			if proto == "" {
+				proto = catalogProtocol(base)
+			}
+			n.Items = append(n.Items, model.Item{Name: name, URL: catalogLink(base, u), Group: str(s["category"]), Data: raw(map[string]any{"protocol": proto})})
 		}
 	case "json-feed":
 		if !strings.Contains(str(o["version"]), "jsonfeed.org/version/") {
@@ -409,12 +447,8 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			n.Items = append(n.Items, model.Item{ID: str(s["id"]), Name: str(s["name"]), URL: resolve(base, str(s["endpoint"])), Data: raw(s)})
 		}
 		n.Config = raw(o)
-	case "mihon-repo":
-		if o["meta"] == nil || o["sources"] == nil {
-			return n, errors.New("expected Mihon repository metadata")
-		}
-		n.Config = raw(o)
-		n.Warnings = append(n.Warnings, "Extension artifacts are never downloaded or executed by Relay")
+	case "mihon-repo", "legado-replace", "so-novel", "relay-book", "podcast":
+		return extraJSON(n, v, base)
 	default:
 		return n, errors.New("JSON is not supported for this protocol")
 	}

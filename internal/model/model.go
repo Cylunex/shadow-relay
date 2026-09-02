@@ -17,31 +17,35 @@ func ID(prefix string) string {
 func Now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
 type Source struct {
-	ID              string   `json:"id"`
-	Name            string   `json:"name"`
-	Protocol        string   `json:"protocol"`
-	MediaTypes      []string `json:"mediaTypes"`
-	Mode            string   `json:"mode"`
-	Capabilities    []string `json:"capabilities"`
-	Trust           string   `json:"trust"`
-	Network         string   `json:"network"`
-	UpdatePolicy    string   `json:"updatePolicy"`
-	IntervalMinutes int      `json:"intervalMinutes"`
-	URL             string   `json:"url,omitempty"`
-	RuntimeID       string   `json:"runtimeId,omitempty"`
-	CatalogID       string   `json:"catalogId,omitempty"`
-	Enabled         bool     `json:"enabled"`
-	Health          string   `json:"health"`
-	Score           int      `json:"score"`
-	Failures        int      `json:"failures"`
-	ActiveRevision  string   `json:"activeRevision,omitempty"`
-	StagedRevision  string   `json:"stagedRevision,omitempty"`
-	ETag            string   `json:"etag,omitempty"`
-	LastModified    string   `json:"lastModified,omitempty"`
-	LastChecked     string   `json:"lastChecked,omitempty"`
-	NextSync        string   `json:"nextSync,omitempty"`
-	CreatedAt       string   `json:"createdAt"`
-	UpdatedAt       string   `json:"updatedAt"`
+	ProbeIntervalMinutes int      `json:"probeIntervalMinutes"`
+	NextProbe            string   `json:"nextProbe,omitempty"`
+	SmokeKeyword         string   `json:"smokeKeyword,omitempty"`
+	HubPluginID          string   `json:"hubPluginId,omitempty"`
+	ID                   string   `json:"id"`
+	Name                 string   `json:"name"`
+	Protocol             string   `json:"protocol"`
+	MediaTypes           []string `json:"mediaTypes"`
+	Mode                 string   `json:"mode"`
+	Capabilities         []string `json:"capabilities"`
+	Trust                string   `json:"trust"`
+	Network              string   `json:"network"`
+	UpdatePolicy         string   `json:"updatePolicy"`
+	IntervalMinutes      int      `json:"intervalMinutes"`
+	URL                  string   `json:"url,omitempty"`
+	RuntimeID            string   `json:"runtimeId,omitempty"`
+	CatalogID            string   `json:"catalogId,omitempty"`
+	Enabled              bool     `json:"enabled"`
+	Health               string   `json:"health"`
+	Score                int      `json:"score"`
+	Failures             int      `json:"failures"`
+	ActiveRevision       string   `json:"activeRevision,omitempty"`
+	StagedRevision       string   `json:"stagedRevision,omitempty"`
+	ETag                 string   `json:"etag,omitempty"`
+	LastModified         string   `json:"lastModified,omitempty"`
+	LastChecked          string   `json:"lastChecked,omitempty"`
+	NextSync             string   `json:"nextSync,omitempty"`
+	CreatedAt            string   `json:"createdAt"`
+	UpdatedAt            string   `json:"updatedAt"`
 }
 type Endpoint struct {
 	ID       string `json:"id"`
@@ -140,14 +144,29 @@ type Member struct {
 	TimeoutMS      int      `json:"timeoutMs"`
 	MaxConcurrency int      `json:"maxConcurrency"`
 }
+type ChannelRule struct {
+	SourceID string `json:"sourceId,omitempty"`
+	Match    string `json:"match"`
+	Name     string `json:"name,omitempty"`
+	Group    string `json:"group,omitempty"`
+	Logo     string `json:"logo,omitempty"`
+	TVGID    string `json:"tvgId,omitempty"`
+	Hide     bool   `json:"hide"`
+}
 type SourceSet struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	Description         string   `json:"description"`
-	Members             []Member `json:"members"`
-	CurrentPublication  string   `json:"currentPublication,omitempty"`
-	PreviousPublication string   `json:"previousPublication,omitempty"`
-	UpdatedAt           string   `json:"updatedAt"`
+	NextPublish         string        `json:"nextPublish,omitempty"`
+	ChannelRules        []ChannelRule `json:"channelRules,omitempty"`
+	AutoPublish         bool          `json:"autoPublish"`
+	MinAvailable        int           `json:"minAvailable"`
+	MaxExcludedPercent  int           `json:"maxExcludedPercent"`
+	PublishSignature    string        `json:"publishSignature,omitempty"`
+	ID                  string        `json:"id"`
+	Name                string        `json:"name"`
+	Description         string        `json:"description"`
+	Members             []Member      `json:"members"`
+	CurrentPublication  string        `json:"currentPublication,omitempty"`
+	PreviousPublication string        `json:"previousPublication,omitempty"`
+	UpdatedAt           string        `json:"updatedAt"`
 }
 type Artifact struct {
 	ContentType string `json:"contentType"`

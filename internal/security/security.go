@@ -110,7 +110,7 @@ func (v *Vault) ReadSnapshot(hash string) ([]byte, error) {
 	return raw, e
 }
 
-var sensitive = map[string]bool{"token": true, "accesstoken": true, "apikey": true, "password": true, "passwd": true, "secret": true, "authorization": true, "cookie": true, "setcookie": true, "xembytoken": true, "xapikey": true, "username": true}
+var sensitive = map[string]bool{"token": true, "accesstoken": true, "apikey": true, "password": true, "passwd": true, "secret": true, "authorization": true, "cookie": true, "cookies": true, "setcookie": true, "xembytoken": true, "xapikey": true, "username": true}
 
 func SensitiveKey(k string) bool {
 	k = strings.ToLower(strings.NewReplacer("-", "", "_", "", ".", "").Replace(k))

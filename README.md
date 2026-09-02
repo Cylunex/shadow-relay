@@ -14,6 +14,9 @@ Relay 管理源和能力；Emby、LegadoHub、Suwayomi 等领域运行时执行�
 - 独立客户端令牌、格式授权、二维码、过期、轮换和吊销。
 - 加密凭据与原始快照、审计、出站地址检查和脱敏客户端反馈。
 - 连接 Emby、Jellyfin、Dispatcharr、LegadoHub、Suwayomi、Audiobookshelf、Miniflux，检测 API 与拉取状态。
+- 书源工坊：阅读静态规则 / so-novel 转标准 Hub 插件、兼容报告、站点脚手架、独立挂载同步与四阶段体检。
+- 直播频道覆盖编排、M3U/TXT 与 EPG 关联；播客清单制作、合并 RSS；漫画新旧仓索引、净化规则和一键导入。
+- yuanc 原始目录配方、参考项目覆盖清单、独立定时体检与带可用率门槛的自动发布。
 
 ## 开发入口
 
@@ -33,6 +36,8 @@ make dev
 ## 文档
 
 - [交付范围与验证状态](docs/implementation-status.md)
+- [原始沟通与参考项目对照](docs/reference-audit.md)
+- [Hub 原生插件与同步工具](docs/hub-bridge.md)
 - [设计与状态模型](docs/design.md)
 - [支持矩阵与执行边界](docs/adapters.md)
 - [开发、配置与容器使用](docs/development.md)
@@ -40,4 +45,4 @@ make dev
 - [安全与恢复](docs/security.md)
 - [OpenAPI](contracts/openapi.json) · [Bundle Schema](contracts/shadow-media-bundle.schema.json) · [Source Schema](contracts/source.schema.json)
 
-本仓库实现源控制台与运行时连接层。Shadow Media 托管模式、跨源内容搜索、内容代理、规则执行、听读进度联动属于后续独立客户端/内容层工作；当前没有在管理界面中伪装成已经可用的功能。实际部署资料和秘密保存在仓库之外。
+书源聚合执行通过生成的原生插件交给官方 Hub；跨媒体全文搜索、内容代理、Shadow Media 托管模式和听读进度联动仍属于独立客户端/运行时工作。实际部署资料和秘密保存在仓库之外。当前新增实现按要求暂停测试，状态见交付文档。

@@ -32,6 +32,15 @@ func (s *Service) SaveCatalog(ctx context.Context, id string, c model.Catalog) (
 				return e
 			}
 		}
+		catalogs, e := store.List[model.Catalog](ctx, tx, "catalogs")
+		if e != nil {
+			return e
+		}
+		for _, existing := range catalogs {
+			if existing.ID != c.ID && existing.URL == c.URL {
+				return errors.New("this catalog URL is already subscribed")
+			}
+		}
 		if e := store.Put(ctx, tx, "catalogs", c.ID, c); e != nil {
 			return e
 		}

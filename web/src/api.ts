@@ -89,3 +89,43 @@ export const defaultMember = (sourceId: string, priority = 100) => ({
   timeoutMs: 15000,
   maxConcurrency: 2,
 });
+
+export async function apiDownload(
+  path: string,
+  filename: string,
+  method = "GET",
+  body?: unknown,
+) {
+  const response = await fetch("/api/v1/" + path, {
+    method,
+    headers: {
+      Authorization: "Bearer " + credential,
+      ...(method !== "GET" ? { "Content-Type": "application/json" } : {}),
+    },
+    ...(method !== "GET" ? { body: JSON.stringify(body ?? {}) } : {}),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "下载失败" }));
+    throw new Error(error.error ?? "下载失败");
+  }
+  const href = URL.createObjectURL(await response.blob());
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+export function importDeepLink(
+  format: string,
+  url: string,
+): string | undefined {
+  const kind: Record<string, string> = {
+    "legado/books.json": "bookSource",
+    "legado/rss.json": "rsssource",
+    "legado/tts.json": "httpTTS",
+    "legado/replace.json": "replaceRule",
+  };
+  return kind[format]
+    ? `yuedu://${kind[format]}/importonline?src=${encodeURIComponent(url)}`
+    : undefined;
+}

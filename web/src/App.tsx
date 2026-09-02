@@ -32,7 +32,23 @@ import {
   Volume2,
 } from "lucide-react";
 import QRCode from "qrcode";
-import { api, defaultMember, label, setCredential, short, time } from "./api";
+import { LocalSourceEditor } from "./LocalSourceEditor";
+import { PodcastComposer } from "./PodcastComposer";
+import {
+  api,
+  defaultMember,
+  label,
+  setCredential,
+  short,
+  time,
+  importDeepLink,
+} from "./api";
+import {
+  BookWorkshop,
+  LiveChannels,
+  ReferenceCatalog,
+  type ImportSeed,
+} from "./Workshop";
 import type {
   Catalog,
   Data,
@@ -48,6 +64,10 @@ import type {
 import { Badge, Empty, ErrorBox, External, Field, Modal } from "./ui";
 
 type Page =
+  | "podcast"
+  | "workshop"
+  | "live"
+  | "references"
   | "overview"
   | "sources"
   | "discover"
@@ -58,10 +78,18 @@ type Page =
 const navigation = [
   { id: "overview" as Page, title: "总览", icon: LayoutDashboard },
   { id: "sources" as Page, title: "源库", icon: Layers3 },
+  { id: "workshop" as Page, title: "书源工坊", icon: BookOpen },
+  { id: "live" as Page, title: "直播频道", icon: Radio },
+  {
+    id: "podcast" as Page,
+    title: "播客制作",
+    icon: Headphones,
+  },
   { id: "discover" as Page, title: "发现与候选箱", icon: Compass },
   { id: "sets" as Page, title: "源编排组", icon: Settings2 },
   { id: "publish" as Page, title: "发布与客户端", icon: Send },
   { id: "runtimes" as Page, title: "运行时", icon: Server },
+  { id: "references" as Page, title: "参考与接入", icon: Compass },
   { id: "jobs" as Page, title: "任务与审计", icon: Activity },
 ];
 const emptyData: Data = {
@@ -77,7 +105,7 @@ const emptyData: Data = {
   meta: { adapters: [], connectors: {}, formats: [] },
 };
 type Dialog =
-  | { type: "import" }
+  | { type: "import"; seed?: ImportSeed }
   | { type: "source"; source: Source }
   | { type: "set"; set?: SourceSet }
   | { type: "runtime"; runtime?: Runtime }
@@ -87,6 +115,10 @@ type Dialog =
   | { type: "publication"; publication: Publication }
   | null;
 const descriptions: Record<Page, string> = {
+  podcast: "把音频整理成一条 RSS 订阅。",
+  workshop: "把站点规则接成一条聚合书源。",
+  live: "整理频道、分组与节目单标识。",
+  references: "原始参考项目的能力去向与可选接入配方。",
   overview: "让每一条源，稳稳抵达。",
   sources: "统一管理看、读、听、说的每一个入口。",
   discover: "先发现，再审核。让可信的源进入你的媒体世界。",
@@ -311,6 +343,24 @@ export default function App() {
             </button>
           </div>
           <ErrorBox error={error} />
+          {page === "workshop" && (
+            <BookWorkshop
+              data={data}
+              importSource={(seed) => setDialog({ type: "import", seed })}
+            />
+          )}
+          {page === "live" && <LiveChannels data={data} refresh={refresh} />}
+          {page === "references" && (
+            <ReferenceCatalog
+              refresh={refresh}
+              importSource={(seed) => setDialog({ type: "import", seed })}
+            />
+          )}
+          {page === "podcast" && (
+            <PodcastComposer
+              importSource={(seed) => setDialog({ type: "import", seed })}
+            />
+          )}
           {page === "overview" && (
             <Overview data={data} navigate={setPage} open={setDialog} />
           )}
@@ -344,6 +394,7 @@ export default function App() {
       )}
       {dialog?.type === "import" && (
         <ImportDialog
+          seed={dialog.seed}
           meta={data.meta}
           runtimes={data.runtimes}
           close={() => setDialog(null)}
@@ -1464,6 +1515,20 @@ function Runtimes({ data, open, busy, run }: PanelProps) {
                 >
                   设置
                 </button>
+                {rt.driver === "legado-hub" && (
+                  <button
+                    className="secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        () => api(`runtimes/${rt.id}/hub-reload`, "POST"),
+                        "Hub 已重新加载插件",
+                      )
+                    }
+                  >
+                    热加载插件
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -1712,22 +1777,24 @@ function parseHeaders(value: string) {
   return x as Record<string, string>;
 }
 function ImportDialog({
+  seed,
   meta,
   runtimes,
   close,
   saved,
 }: {
+  seed?: ImportSeed;
   meta: Meta;
   runtimes: Runtime[];
   close: () => void;
   saved: () => Promise<void>;
 }) {
-  const [tab, setTab] = useState("url");
+  const [tab, setTab] = useState(seed?.content ? "text" : "url");
   const [form, setForm] = useState({
-    name: "",
-    url: "",
-    content: "",
-    protocol: "",
+    name: seed?.name ?? "",
+    url: seed?.url ?? "",
+    content: seed?.content ?? "",
+    protocol: seed?.protocol ?? "",
     network: "internet",
     trust: "reviewed",
     mode: "",
@@ -1992,6 +2059,9 @@ function SourceDialog({
     trust: source.trust,
     updatePolicy: source.updatePolicy,
     intervalMinutes: source.intervalMinutes,
+    probeIntervalMinutes: source.probeIntervalMinutes ?? 0,
+    smokeKeyword: source.smokeKeyword ?? "",
+    hubPluginId: source.hubPluginId ?? "",
   });
   const [headers, setHeaders] = useState("");
   const [headerNames, setHeaderNames] = useState<string[]>([]);
@@ -2235,6 +2305,48 @@ function SourceDialog({
           ))}
         {tab === "settings" && (
           <>
+            <LocalSourceEditor source={source} saved={refresh} />
+            <div className="form-grid">
+              <Field
+                label="定时体检间隔（分钟）"
+                hint="0 为关闭；最短 15 分钟。固定版本的源也会体检。"
+              >
+                <input
+                  type="number"
+                  min="0"
+                  max="43200"
+                  value={form.probeIntervalMinutes}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      probeIntervalMinutes: Number(e.target.value),
+                    })
+                  }
+                />
+              </Field>
+              <Field
+                label="Hub 体检书名"
+                hint="关联 LegadoHub 后执行搜索、详情、目录和正文检查。留空只检测服务。"
+              >
+                <input
+                  value={form.smokeKeyword}
+                  onChange={(e) =>
+                    setForm({ ...form, smokeKeyword: e.target.value })
+                  }
+                />
+              </Field>
+              <Field
+                label="Hub 已有插件 ID（可选）"
+                hint="Relay 生成的插件自动匹配；手写插件填写现有 ID。"
+              >
+                <input
+                  value={form.hubPluginId}
+                  onChange={(e) =>
+                    setForm({ ...form, hubPluginId: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
             <Field label="源名称">
               <input
                 value={form.name}
@@ -2391,6 +2503,11 @@ function SetDialog({
   const [name, setName] = useState(set?.name ?? "");
   const [description, setDescription] = useState(set?.description ?? "");
   const [members, setMembers] = useState(set?.members ?? []);
+  const [autoPublish, setAutoPublish] = useState(set?.autoPublish ?? false);
+  const [minAvailable, setMinAvailable] = useState(set?.minAvailable ?? 1);
+  const [maxExcludedPercent, setMaxExcludedPercent] = useState(
+    set?.maxExcludedPercent ?? 25,
+  );
   const { busy, error, submit } = useSubmit();
   return (
     <Modal
@@ -2419,6 +2536,38 @@ function SetDialog({
         <div className="section-title">
           <h3>选择源与顺序</h3>
           <span className="tag">{members.length} 个成员</span>
+        </div>
+        <div className="workshop-card">
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={autoPublish}
+              onChange={(e) => setAutoPublish(e.target.checked)}
+            />{" "}
+            定时发布已批准的变更（每 15 分钟）
+          </label>
+          <div className="form-grid">
+            <Field label="最少可用源数">
+              <input
+                type="number"
+                min="1"
+                value={minAvailable}
+                onChange={(e) => setMinAvailable(Number(e.target.value))}
+              />
+            </Field>
+            <Field
+              label="最多允许排除的源（%）"
+              hint="超过门槛时保留旧发布，不会自动批准待审规则。"
+            >
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={maxExcludedPercent}
+                onChange={(e) => setMaxExcludedPercent(Number(e.target.value))}
+              />
+            </Field>
+          </div>
         </div>
         {sources.map((src) => {
           const m = members.find((x) => x.sourceId === src.id);
@@ -2589,7 +2738,15 @@ function SetDialog({
               await api(
                 set ? `source-sets/${set.id}` : "source-sets",
                 set ? "PUT" : "POST",
-                { name, description, members },
+                {
+                  ...set,
+                  name,
+                  description,
+                  members,
+                  autoPublish,
+                  minAvailable,
+                  maxExcludedPercent,
+                },
               );
               await saved();
             })
@@ -2888,6 +3045,7 @@ function TokenDialog({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
   const url = baseUrl + "/" + selected;
+  const deepLink = importDeepLink(selected, url);
   useEffect(() => {
     let active = true;
     QRCode.toDataURL(url, {
@@ -2941,6 +3099,11 @@ function TokenDialog({
             {copied ? <Check size={16} /> : <Copy size={16} />}
           </button>
         </div>
+        {deepLink && (
+          <a className="primary" href={deepLink}>
+            一键导入阅读
+          </a>
+        )}
         <small>
           只有发布版本实际包含的格式才会返回内容。不可变版本地址：在格式前加入
           v/发布ID/。
