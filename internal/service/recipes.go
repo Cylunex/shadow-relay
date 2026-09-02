@@ -16,6 +16,16 @@ type ReferenceRecipe struct {
 // Project URLs are public upstream references, not operator deployment addresses.
 func ReferenceRecipes() []ReferenceRecipe {
 	return []ReferenceRecipe{
+		{"seed-legado-18plus-250118", "精选·18+书源 250118", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/250118.json", "legado-book", "source", "已接入", "seeds/legado/priority-18plus.urls.txt 优先包；URL 种子不入库 JSON"},
+		{"seed-legado-18plus-250106", "精选·18+书源 250106", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/250106.json", "legado-book", "source", "已接入", "含 ## 与 searchUrl 逗号 JSON；适配器已放宽不透明规则校验"},
+		{"seed-legado-uaa2", "精选·UAA2", "读", "https://github.com/yuedu521/yiciyuan", "https://gcore.jsdelivr.net/gh/yuedu521/yiciyuan/uaa2.json", "legado-book", "source", "已接入", "UAA 相关优先书源包"},
+		{"seed-legado-yck-5530", "精选·yckceo 5530", "读", "https://www.yckceo.com/", "https://www.yckceo.com/yuedu/shuyuan/json/id/5530.json", "legado-book", "source", "已接入", "yckceo 单仓；yckceo1 镜像常 403"},
+		{"seed-tvbox-ngzmods", "TVBox · ngzmods", "看", "https://16409.kstore.vip/", "https://16409.kstore.vip/tv/ngzmods.json", "tvbox", "source", "已接入", "seeds/tvbox/warehouses.urls.txt"},
+		{"seed-tvbox-newwex", "TVBox · newwex", "看", "https://9280.kstore.vip/", "https://9280.kstore.vip/newwex.json", "tvbox", "source", "已接入", "多仓候选，审核后发布"},
+		{"seed-tvbox-xc", "TVBox · XC", "看", "https://github.com/yoursmile66/TVBox", "https://gh-proxy.com/https://raw.githubusercontent.com/yoursmile66/TVBox/refs/heads/main/XC.json", "tvbox", "source", "已接入", "经 gh-proxy 拉取"},
+		{"seed-tvbox-xyq", "TVBox · XYQ", "看", "https://github.com/xyq254245/xyqonlinerule", "https://gh-proxy.com/https://raw.githubusercontent.com/xyq254245/xyqonlinerule/main/XYQTVBox.json", "tvbox", "source", "已接入", "经 gh-proxy 拉取"},
+		{"seed-iptv-guovin", "IPTV · Guovin result", "看", "https://github.com/Guovin/iptv-api", "https://cdn.jsdelivr.net/gh/Guovin/iptv-api@gd/output/result.m3u", "m3u", "source", "已接入", "seeds/iptv/live.urls.txt"},
+		{"seed-iptv-rihou", "IPTV · rihou live", "看", "http://rihou.cc:555/", "http://rihou.cc:555/gggg.nzk", "m3u", "source", "候选", "直播清单；格式以导入预览为准"},
 		{"yuanc-books", "yuanc · 书源目录", "读", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/legado/books.json", "catalog", "catalog", "已接入", "原生 link 字段、路径分类与相对链接；先进入候选箱"},
 		{"yuanc-video", "yuanc · 影视目录", "看", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/ysc/videos.json", "catalog", "catalog", "已接入", "单仓、多仓候选分别审核"},
 		{"yuanc-iptv", "yuanc · 直播目录", "看", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/iptv/iptv.json", "catalog", "catalog", "已接入", "目录同步后接纳 M3U/TXT 订阅"},

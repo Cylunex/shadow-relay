@@ -65,6 +65,12 @@ func TestCredentialsRejectedFromURLsAndDocuments(t *testing.T) {
 	if ValidateDocument([]byte(`{"sites":[{"key":"site-id"}]}`)) != nil {
 		t.Fatal("TVBox key is not a credential")
 	}
+	if ValidateDocument([]byte(`[{"bookSourceName":"demo","bookSourceUrl":"https://example.com/##note","searchUrl":"https://example.com/s?q={{key}},{\n  \"charset\": \"utf-8\"\n}"}]`)) != nil {
+		t.Fatal("Legado opaque rule URLs with ## or comma-JSON must be accepted")
+	}
+	if ValidateDocument([]byte(`{"url":"http://user:pass@example.com/"}`)) == nil {
+		t.Fatal("userinfo in embedded URL accepted")
+	}
 	if ValidateHeaders(map[string]string{"X-Test": "ok\r\nAuthorization: secret"}) == nil {
 		t.Fatal("header injection accepted")
 	}

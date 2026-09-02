@@ -32,7 +32,7 @@ https://media.example.com/live.m3u8`, "", 1},
 		{"json-feed", `{"version":"https://jsonfeed.org/version/1.1","items":[{"id":"1","title":"News","url":"https://feeds.example.com/a"}]}`, "", 1},
 		{"catalog", `{"entries":[{"name":"A","url":"https://media.example.com/config.json"}]}`, "", 1},
 		{"shadow-bundle", `{"schema":"shadow.media.bundle/v1","providers":[{"id":"media","driver":"emby","mode":"direct-client","endpoint":"https://media.example.com"}]}`, "", 1},
-		{"mihon-repo", `{"meta":{"name":"Example"},"sources":[]}`, "", 0},
+		{"mihon-repo", `{"meta":{"name":"Example"},"sources":[]}`, "", 1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
