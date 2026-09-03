@@ -3608,6 +3608,29 @@
           }
         }
       }
+    },
+    "/api/v1/source-sets/{id}/preview": {
+      "post": {
+        "summary": "预览发布资格、文件和兼容警告，不保存版本或切换订阅",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "编译预览；返回 sourceRevisions、exclusions、formatWarnings 以及各 artifact 的 contentType 和 bytes"
+          },
+          "400": {
+            "description": "无合格源或规则校验失败，返回 exclusions/sourceErrors；当前发布不变"
+          }
+        }
+      }
     }
   }
 }

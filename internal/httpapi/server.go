@@ -45,6 +45,11 @@ func reply(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func failure(w http.ResponseWriter, e error) {
+	var publicationError *service.PublicationError
+	if errors.As(e, &publicationError) {
+		reply(w, 400, map[string]any{"error": publicationError.Error(), "exclusions": publicationError.Exclusions, "sourceErrors": publicationError.SourceErrors})
+		return
+	}
 	status := http.StatusBadRequest
 	message := e.Error()
 	if errors.Is(e, store.ErrNotFound) {
@@ -433,6 +438,19 @@ func (s *Server) routes(mux *http.ServeMux) {
 			return nil
 		}))
 	}
+	mux.HandleFunc("POST /api/v1/source-sets/{id}/preview", handle(func(w http.ResponseWriter, r *http.Request) error {
+		p, e := svc.PreviewPublication(r.Context(), r.PathValue("id"))
+		if e != nil {
+			return e
+		}
+		// Report counts/sizes without copying rule bodies or a non-existent publication ID.
+		artifacts := map[string]any{}
+		for path, artifact := range p.Artifacts {
+			artifacts[path] = map[string]any{"contentType": artifact.ContentType, "bytes": len(artifact.Body)}
+		}
+		reply(w, 200, map[string]any{"setId": p.SetID, "sourceRevisions": p.SourceRevisions, "exclusions": p.Exclusions, "formatWarnings": p.FormatWarnings, "artifacts": artifacts})
+		return nil
+	}))
 	mux.HandleFunc("POST /api/v1/source-sets/{id}/publish", handle(func(w http.ResponseWriter, r *http.Request) error {
 		p, e := svc.Publish(r.Context(), r.PathValue("id"))
 		if e != nil {

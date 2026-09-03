@@ -37,12 +37,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "id",
-          "driver",
-          "mode",
-          "endpoint"
-        ],
+        "required": ["id", "driver", "mode", "endpoint"],
         "properties": {
           "id": {
             "type": "string",
@@ -72,11 +67,7 @@
             ]
           },
           "mode": {
-            "enum": [
-              "compiled",
-              "runtime-backed",
-              "direct-client"
-            ]
+            "enum": ["compiled", "runtime-backed", "direct-client"]
           },
           "endpoint": {
             "type": "string",
@@ -102,11 +93,7 @@
             "minimum": 1
           },
           "role": {
-            "enum": [
-              "primary",
-              "backup",
-              "auxiliary"
-            ]
+            "enum": ["primary", "backup", "auxiliary"]
           },
           "health": {
             "type": "string"
@@ -123,19 +110,13 @@
             "type": "object",
             "properties": {
               "devices": {
-                "type": [
-                  "array",
-                  "null"
-                ],
+                "type": ["array", "null"],
                 "items": {
                   "type": "string"
                 }
               },
               "networks": {
-                "type": [
-                  "array",
-                  "null"
-                ],
+                "type": ["array", "null"],
                 "items": {
                   "type": "string"
                 }
@@ -157,6 +138,13 @@
         "type": "string",
         "format": "uri"
       }
+    },
+    "formatWarnings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "按导出格式说明结构兼容性限制；不代表实际书站可用率。"
     }
   },
   "additionalProperties": false

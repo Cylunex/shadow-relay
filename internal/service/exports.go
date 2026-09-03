@@ -48,7 +48,7 @@ func (s *Service) BookReport(ctx context.Context, id, revision string) (bookplug
 	return bookReport(src, r.Normalized), r.CreatedAt, nil
 }
 
-func extendedArtifacts(setID, setName, generatedAt string, items []selected, add func(string, string, string)) error {
+func extendedArtifacts(setID, setName, generatedAt string, items []selected, warnings map[string]string, add func(string, string, string)) error {
 	report := bookplugin.Report{SetID: setID, GeneratedAt: generatedAt, Schema: "shadow.hub.plugins/v1", Entries: []bookplugin.Entry{}}
 	repos := []any{}
 	podcastItems := []model.Item{}
@@ -70,7 +70,11 @@ func extendedArtifacts(setID, setName, generatedAt string, items []selected, add
 		case "legado-book", "so-novel", "relay-book":
 			n.Items = filtered(n.Items, v.Member)
 			r := bookReport(src, n)
-			report.Entries = append(report.Entries, r.Entries...)
+			for _, entry := range r.Entries {
+				if entry.Recipe != nil && len(entry.Blockers) == 0 {
+					report.Entries = append(report.Entries, entry)
+				}
+			}
 			report.Supported += r.Supported
 			report.Unsupported += r.Unsupported
 		case "mihon-repo":
@@ -86,7 +90,10 @@ func extendedArtifacts(setID, setName, generatedAt string, items []selected, add
 	if len(report.Entries) > 500 {
 		return errors.New("Hub manifest exceeds 500 rules; select a smaller source pack or split this set")
 	}
-	if len(report.Entries) > 0 {
+	if report.Unsupported > 0 {
+		warnings["hub/plugins.json"] = fmt.Sprintf("%d 条规则不能转换为 Hub 插件；完整原因请查看源的书源兼容报告。阅读格式独立保留原规则。", report.Unsupported)
+	}
+	if report.Supported+report.Unsupported > 0 {
 		add("hub/plugins.json", "application/json", string(jsonBytes(report)))
 	}
 	if len(repos) > 0 {

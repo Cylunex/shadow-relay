@@ -41,6 +41,7 @@ make dev
 - [设计与状态模型](docs/design.md)
 - [支持矩阵与执行边界](docs/adapters.md)
 - [开发、配置与容器使用](docs/development.md)
+- [书源发布操作与排错](docs/book-publishing.md)
 - [客户端协议与接入](docs/client-contract.md)
 - [安全与恢复](docs/security.md)
 - [OpenAPI](contracts/openapi.json) · [Bundle Schema](contracts/shadow-media-bundle.schema.json) · [Source Schema](contracts/source.schema.json)

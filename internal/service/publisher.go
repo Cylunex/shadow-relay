@@ -113,7 +113,16 @@ type selected struct {
 func (s *Service) Publish(ctx context.Context, id string) (model.Publication, error) {
 	return s.publish(ctx, id, false)
 }
+
+// PreviewPublication compiles the same snapshot as Publish without storing it or
+// moving the subscription pointer. Its generated ID is provisional.
+func (s *Service) PreviewPublication(ctx context.Context, id string) (model.Publication, error) {
+	return s.preparePublication(ctx, id, false, true)
+}
 func (s *Service) publish(ctx context.Context, id string, automatic bool) (model.Publication, error) {
+	return s.preparePublication(ctx, id, automatic, false)
+}
+func (s *Service) preparePublication(ctx context.Context, id string, automatic, preview bool) (model.Publication, error) {
 	var pub model.Publication
 	e := s.DB.Write(ctx, func(tx *store.Tx) error {
 		set, e := store.Get[model.SourceSet](ctx, tx, "source_sets", id)
@@ -183,7 +192,7 @@ func (s *Service) publish(ctx context.Context, id string, automatic bool) (model
 			items = append(items, selected{src, r, m, endpoint, driver})
 		}
 		if len(items) == 0 {
-			return errors.New("no eligible sources; current publication is preserved")
+			return &PublicationError{Message: "没有可发布的源；请先批准版本并启用源，再检查健康分、过滤条件和运行时。当前发布保持不变。", Exclusions: excluded}
 		}
 		if automatic && (!set.AutoPublish || len(items) < set.MinAvailable || (len(excluded)*100 > set.MaxExcludedPercent*len(members))) {
 			return errors.New("automatic publication held by availability policy")
@@ -196,6 +205,9 @@ func (s *Service) publish(ctx context.Context, id string, automatic bool) (model
 		pub, e = Compile(set, items, excluded)
 		if e != nil {
 			return e
+		}
+		if preview {
+			return nil
 		}
 		if e = store.Insert(ctx, tx, "publications", pub.ID, pub); e != nil {
 			return e
@@ -249,7 +261,7 @@ func xmlEscape(s string) string {
 }
 func attr(s string) string { return strings.NewReplacer("\"", "'", "\n", " ", "\r", " ").Replace(s) }
 func Compile(set model.SourceSet, items []selected, excluded map[string]string) (model.Publication, error) {
-	p := model.Publication{ID: model.ID("pub"), SetID: set.ID, SourceRevisions: map[string]string{}, Exclusions: excluded, Artifacts: map[string]model.Artifact{}, CreatedAt: model.Now()}
+	p := model.Publication{FormatWarnings: map[string]string{}, ID: model.ID("pub"), SetID: set.ID, SourceRevisions: map[string]string{}, Exclusions: excluded, Artifacts: map[string]model.Artifact{}, CreatedAt: model.Now()}
 	providers := []any{}
 	channels, feeds, books := []model.Item{}, []model.Item{}, []model.Item{}
 	tvStores := []any{}
@@ -346,9 +358,17 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 				}
 			}
 		case "legado-book", "legado-rss", "legado-tts", "legado-replace":
-			var entries []any
-			if e := json.Unmarshal(n.Config, &entries); e != nil {
-				return p, e
+			// Use filtered items, not the unfiltered original pack in Config.
+			entries := make([]any, 0, len(its))
+			for _, item := range its {
+				var entry any
+				if e := json.Unmarshal(item.Data, &entry); e != nil {
+					return p, e
+				}
+				entries = append(entries, entry)
+			}
+			if e := security.ValidateDocument(jsonBytes(entries)); e != nil {
+				return p, &PublicationError{Message: "书源规则未通过发布校验；当前发布保持不变。", SourceErrors: map[string]string{src.ID: e.Error()}, Exclusions: excluded}
 			}
 			for _, x := range entries {
 				key := src.Protocol + security.Hash(jsonBytes(x))
@@ -424,7 +444,7 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 	if len(books) > 0 {
 		add("opds/", "application/atom+xml;profile=opds-catalog", opdsBody(set.ID, set.Name, p.CreatedAt, books))
 	}
-	if e := extendedArtifacts(set.ID, set.Name, p.CreatedAt, items, add); e != nil {
+	if e := extendedArtifacts(set.ID, set.Name, p.CreatedAt, items, p.FormatWarnings, add); e != nil {
 		return p, e
 	}
 	if len(providers) == 0 && len(p.Artifacts) == 0 {
@@ -437,7 +457,7 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		}
 	}
 	p.Revision = "sha256:" + security.Hash(jsonBytes(map[string]any{"providers": providers, "artifacts": p.Artifacts, "set": set.ID}))
-	bundle := map[string]any{"schema": "shadow.media.bundle/v1", "bundleId": set.ID, "name": set.Name, "publicationId": p.ID, "revision": p.Revision, "generatedAt": p.CreatedAt, "providers": providers, "exports": exports}
+	bundle := map[string]any{"schema": "shadow.media.bundle/v1", "bundleId": set.ID, "name": set.Name, "publicationId": p.ID, "revision": p.Revision, "generatedAt": p.CreatedAt, "providers": providers, "exports": exports, "formatWarnings": p.FormatWarnings}
 	add("shadow.json", "application/json", string(jsonBytes(bundle)))
 	size := 0
 	for _, a := range p.Artifacts {

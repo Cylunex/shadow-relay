@@ -176,6 +176,7 @@ type Artifact struct {
 	Hash        string `json:"hash"`
 }
 type Publication struct {
+	FormatWarnings  map[string]string   `json:"formatWarnings,omitempty"`
 	ID              string              `json:"id"`
 	SetID           string              `json:"setId"`
 	Revision        string              `json:"revision"`
