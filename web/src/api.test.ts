@@ -1,7 +1,36 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, setCredential } from "./api";
-afterEach(() => vi.unstubAllGlobals());
+import { api, apiUpload, setCredential } from "./api";
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
 describe("API boundary", () => {
+  it("uploads multipart data with the deployment prefix and browser-generated boundary", async () => {
+    vi.stubEnv("BASE_URL", "/relay/");
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ applied: false }) });
+    vi.stubGlobal("fetch", fetcher);
+    const form = new FormData();
+    form.set("mode", "preview");
+    setCredential("test-upload-token");
+    await apiUpload("data/import", form);
+    const [url, options] = fetcher.mock.calls[0];
+    expect(url).toBe("/relay/api/v1/data/import");
+    expect(options.body).toBe(form);
+    expect(options.headers).toEqual({
+      Authorization: "Bearer test-upload-token",
+    });
+  });
+  it("uses the configured deployment prefix for API requests", async () => {
+    vi.stubEnv("BASE_URL", "/relay/");
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal("fetch", fetcher);
+    await api("sources");
+    expect(fetcher.mock.calls[0][0]).toBe("/relay/api/v1/sources");
+  });
   it("sends bearer credentials only in headers and serializes empty mutations", async () => {
     const fetcher = vi
       .fn()

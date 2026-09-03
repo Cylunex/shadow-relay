@@ -15,5 +15,18 @@ web/playwright-report/
 *.log
 *.tsbuildinfo
 
+# local runtime / imported dumps
+*.db
+*.sqlite
+*.sqlite3
+caches/
+cache/
+*.dump.json
+*.imported.json
+internal/adapter/testdata_*.json
+
 __pycache__/
 *.pyc
+
+# local-only seed URL catalogs (do not commit or push)
+seeds/

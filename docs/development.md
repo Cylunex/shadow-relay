@@ -9,7 +9,7 @@
 | `RELAY_DATABASE_URL` | 必填，PostgreSQL 16+ 连接串 |
 | `RELAY_MASTER_KEY` | 必填，Base64 编码的 32 字节 AES 主密钥 |
 | `RELAY_ADMIN_TOKEN` | API 模式必填，至少 32 字符随机值；不是客户端订阅令牌 |
-| `RELAY_PUBLIC_URL` | 客户端可访问的服务 origin，生产必须显式设置；用于生成订阅内的链接，拒绝从用户请求 Host 推断 |
+| `RELAY_PUBLIC_URL` | 客户端可访问的服务基址，生产必须显式设置；可包含反向代理子路径，用于生成订阅内的链接，拒绝从用户请求 Host 推断 |
 | `RELAY_DATA_DIR` | 加密快照目录，默认 `data` |
 | `RELAY_WEB_DIR` | 已构建前端目录，默认 `web/dist` |
 | `RELAY_LISTEN` | HTTP 监听地址，开发默认仅回环 |
@@ -28,6 +28,8 @@ make dev
 ```
 
 `npm run dev --prefix web` 将 `/api`、`/p` 代理到本机开发 API；生产使用同源打包界面。前端不依赖外部字体或 CDN。
+
+部署在反向代理子路径时，例如 `https://nas.example.com/relay`，将 `RELAY_PUBLIC_URL` 设置为该完整基址，并使用 `npm run build --prefix web -- --base=/relay/` 构建前端。代理应剥离 `/relay/` 后转发到应用根路径；API、静态资源和订阅链接均使用相同前缀。独立子域名部署继续使用根路径。
 
 ## 容器
 

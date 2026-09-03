@@ -312,8 +312,22 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 		if o["spider"] != nil || o["parses"] != nil {
 			n.Warnings = append(n.Warnings, "Spider binaries and executable parsers are excluded")
 		}
+		for _, x := range list(o["lives"]) {
+			s := object(x)
+			u := resolve(base, str(s["url"]))
+			if u == "" || security.SafeURL(u) != nil {
+				n.Warnings = append(n.Warnings, "Excluded unsafe TVBox live list: "+str(s["name"]))
+				continue
+			}
+			name := str(s["name"])
+			if name == "" {
+				name = "live"
+			}
+			n.Items = append(n.Items, model.Item{Name: name, URL: u, Group: "live", Data: raw(map[string]string{"protocol": "m3u"})})
+			urls = append(urls, map[string]any{"name": name, "url": u})
+		}
 		if len(n.Items) == 0 {
-			return n, errors.New("TVBox has no safe HTTP sites or store URLs")
+			return n, errors.New("TVBox has no safe HTTP sites, store URLs or live lists")
 		}
 		n.Config = raw(map[string]any{"sites": safeSites, "urls": urls})
 	case "legado-book", "legado-rss", "legado-tts":
@@ -341,8 +355,14 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 				return n, errors.New("Legado entries require name and URL")
 			}
 			if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
-				if e := security.SafeURL(strings.Split(u, ",")[0]); e != nil {
-					return n, e
+				// Legado bookSourceUrl often uses #tags or ##js markers; treat as opaque host check only.
+				ruleURL := strings.TrimSpace(strings.Split(strings.Split(u, ",")[0], "##")[0])
+				pu, err := url.Parse(ruleURL)
+				if err != nil || pu.Hostname() == "" || (pu.Scheme != "http" && pu.Scheme != "https") {
+					return n, errors.New("Legado bookSourceUrl must be an absolute HTTP(S) URL")
+				}
+				if pu.User != nil {
+					return n, errors.New("embedded credentials are not allowed; use the credential vault")
 				}
 			}
 			n.Items = append(n.Items, model.Item{Name: name, ID: security.Hash(raw(x))[:16], Data: raw(x)})
@@ -521,11 +541,29 @@ func parseM3U(body, base string) (model.Normalized, error) {
 			n.Items = append(n.Items, model.Item{Name: parts[0], URL: resolve(base, strings.TrimSpace(parts[1])), Group: group})
 			continue
 		}
-		return n, errors.New("playlist entry has no EXTINF or TXT channel name")
+		n.Warnings = append(n.Warnings, "Skipped playlist line without EXTINF or TXT channel name")
 	}
 	if pending != nil {
-		return n, errors.New("M3U channel is missing its URL")
+		n.Warnings = append(n.Warnings, "Skipped trailing EXTINF without URL")
+		pending = nil
 	}
+	kept := n.Items[:0]
+	for _, item := range n.Items {
+		if item.URL == "" {
+			n.Warnings = append(n.Warnings, "Skipped channel with empty URL: "+item.Name)
+			continue
+		}
+		if e := security.SafeURL(item.URL); e != nil {
+			n.Warnings = append(n.Warnings, "Skipped unsafe stream URL: "+item.Name)
+			continue
+		}
+		if item.Logo != "" && security.SafeURL(item.Logo) != nil {
+			item.Logo = ""
+			n.Warnings = append(n.Warnings, "Dropped unsafe logo for: "+item.Name)
+		}
+		kept = append(kept, item)
+	}
+	n.Items = kept
 	if len(n.Items) == 0 {
 		return n, errors.New("playlist contains no channels")
 	}

@@ -162,9 +162,13 @@ func walk(v any) error {
 			}
 		}
 	case string:
+		// Opaque rule payloads (Legado searchUrl + JSON options, ## markers, etc.) are not subscription URLs.
+		// Only reject clear userinfo credentials inside embedded absolute URLs; fragments and commas stay allowed.
 		if strings.HasPrefix(x, "http://") || strings.HasPrefix(x, "https://") {
-			if e := SafeURL(x); e != nil {
-				return e
+			base := strings.Split(strings.Split(x, ",")[0], "##")[0]
+			u, e := url.Parse(strings.TrimSpace(base))
+			if e == nil && u.User != nil {
+				return errors.New("embedded credentials are not allowed; use the credential vault")
 			}
 		}
 	}

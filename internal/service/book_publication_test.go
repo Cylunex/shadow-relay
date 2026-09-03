@@ -112,7 +112,7 @@ func TestPublicationPreviewAndValidationPreservePointer(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		rev.Normalized.Items[0].Data = json.RawMessage(`{"bookSourceName":"Book","bookSourceUrl":"https://books.example.com/?token=private"}`)
+		rev.Normalized.Items[0].Data = json.RawMessage(`{"bookSourceName":"Book","bookSourceUrl":"https://reader:private@books.example.com/"}`)
 		return store.Put(t.Context(), tx, "revisions", rev.ID, rev)
 	})
 	if err != nil {

@@ -321,7 +321,10 @@ func (s *Service) SourceAction(ctx context.Context, id, action, revision string)
 			return e
 		}
 		switch action {
-		case "approve", "rollback":
+		case "approve", "approve-enable", "rollback":
+			if action == "approve-enable" && (revision == "" || revision != v.StagedRevision) {
+				return errors.New("待审核版本已变化，请刷新后重新审核")
+			}
 			if revision == "" {
 				revision = v.StagedRevision
 			}
@@ -334,6 +337,9 @@ func (s *Service) SourceAction(ctx context.Context, id, action, revision string)
 			}
 			if r.Status == "invalid" {
 				return errors.New("invalid revision cannot be approved")
+			}
+			if action == "approve-enable" && r.Status != "staged" {
+				return errors.New("只能批准并启用当前待审核版本")
 			}
 			if action == "rollback" && r.Status != "approved" {
 				return errors.New("rollback requires a previously approved revision")
@@ -353,6 +359,17 @@ func (s *Service) SourceAction(ctx context.Context, id, action, revision string)
 				v.Health = "degraded"
 				v.Score = 60
 			}
+			if action == "approve-enable" {
+				v.Enabled = true
+				if v.Health == "disabled" {
+					v.Health = "degraded"
+					v.Score = 60
+				}
+				if e = audit(ctx, tx, "source.approve", id); e != nil {
+					return e
+				}
+				action = "enable"
+			}
 		case "reject":
 			if v.StagedRevision == "" {
 				return errors.New("no staged revision")
@@ -368,7 +385,7 @@ func (s *Service) SourceAction(ctx context.Context, id, action, revision string)
 			v.StagedRevision = ""
 		case "enable":
 			if v.ActiveRevision == "" {
-				return errors.New("approve a revision before enabling")
+				return errors.New("请先在源库审核版本，或选择“批准并启用”")
 			}
 			v.Enabled = true
 			if v.Health == "disabled" {

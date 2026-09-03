@@ -32,6 +32,7 @@ type Server struct {
 	WebDir     string
 	PublicURL  string
 	mu         sync.Mutex
+	transferMu sync.Mutex
 	rates      map[string]*rate
 }
 type rate struct {
@@ -183,7 +184,8 @@ func (s *Server) auth(next http.Handler) http.Handler {
 			return
 		}
 		if r.Method != "GET" && r.Method != "HEAD" {
-			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			multipartImport := r.URL.Path == "/api/v1/data/import" && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data;")
+			if !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") && !multipartImport {
 				reply(w, 415, map[string]string{"error": "application/json required"})
 				return
 			}
@@ -220,6 +222,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/proxies", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"proxyIds": svc.ProxyIDs()})
 	})
+	s.transferRoutes(mux)
 	mux.HandleFunc("GET /api/v1/adapters", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"adapters": adapter.Describe(), "connectors": service.Connectors, "formats": service.Formats})
 	})

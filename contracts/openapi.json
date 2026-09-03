@@ -20,7 +20,9 @@
     "schemas": {
       "SourceInput": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -90,7 +92,10 @@
             "description": "RELAY_PROXIES 中的配置 ID。创建时省略或空值为直连；更新时省略保留，空值清除。仅 internet 网络可用。"
           },
           "hubProxyMode": {
-            "enum": ["never", "always"],
+            "enum": [
+              "never",
+              "always"
+            ],
             "description": "仅 Relay 生成的书源插件支持。never 直连，always 使用 Hub 本机代理。更新时省略保留。"
           }
         }
@@ -155,11 +160,57 @@
                   "type": "boolean"
                 }
               },
-              "required": ["match"]
+              "required": [
+                "match"
+              ]
             }
           }
         },
-        "required": ["name", "members"]
+        "required": [
+          "name",
+          "members"
+        ]
+      },
+      "DataTransferSummary": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "added": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "reused": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "snapshots": {
+            "type": "integer"
+          },
+          "seedFiles": {
+            "type": "integer"
+          },
+          "interruptedJobs": {
+            "type": "integer"
+          },
+          "keyRequired": {
+            "type": "boolean"
+          },
+          "applied": {
+            "type": "boolean"
+          }
+        }
       }
     }
   },
@@ -520,7 +571,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -596,7 +649,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -710,7 +765,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -2885,7 +2942,10 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": ["sourceId", "code"],
+                "required": [
+                  "sourceId",
+                  "code"
+                ],
                 "properties": {
                   "sourceId": {
                     "type": "string"
@@ -3478,7 +3538,9 @@
                     "type": "string"
                   }
                 },
-                "required": ["content"]
+                "required": [
+                  "content"
+                ]
               }
             }
           }
@@ -3628,6 +3690,149 @@
           },
           "400": {
             "description": "无合格源或规则校验失败，返回 exclusions/sourceErrors；当前发布不变"
+          }
+        }
+      }
+    },
+    "/api/v1/data/export": {
+      "get": {
+        "summary": "导出完整空间数据包",
+        "operationId": "exportWorkspaceData",
+        "description": "管理员专用。返回包含版本化清单、加密快照和种子文件的 tar.gz；不包含主密钥或环境配置。",
+        "responses": {
+          "200": {
+            "description": "私密备份附件",
+            "content": {
+              "application/gzip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "需要管理员 Bearer"
+          },
+          "409": {
+            "description": "已有数据迁移正在执行"
+          }
+        }
+      }
+    },
+    "/api/v1/data/import": {
+      "post": {
+        "summary": "预览或合并导入空间数据包",
+        "operationId": "importWorkspaceData",
+        "description": "默认仅预览。64 MiB 文件上限；跨实例数据需提供原主密钥，目标密钥不变；同 ID 冲突整次回滚。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "preview",
+                      "apply"
+                    ],
+                    "default": "preview"
+                  },
+                  "sourceMasterKey": {
+                    "type": "string",
+                    "format": "password",
+                    "writeOnly": true,
+                    "description": "仅在本次请求内存中用于解密"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "预览或导入统计；仅 applied=true 表示已写入",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataTransferSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "数据包、密钥或结构无效"
+          },
+          "401": {
+            "description": "需要管理员 Bearer"
+          },
+          "403": {
+            "description": "跨站请求被拒绝"
+          },
+          "409": {
+            "description": "数据冲突或存在待处理任务"
+          },
+          "413": {
+            "description": "上传超过大小限制"
+          }
+        }
+      }
+    },
+    "/api/v1/sources/{id}/approve-enable": {
+      "post": {
+        "summary": "Approve the current staged revision and enable the source atomically",
+        "operationId": "post_api_v1_sources_id_approve_enable",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Validation failed"
+          },
+          "404": {
+            "description": "Not found or not authorized"
+          },
+          "409": {
+            "description": "State conflict"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "revision": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "revision"
+                ]
+              }
+            }
           }
         }
       }

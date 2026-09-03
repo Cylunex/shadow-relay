@@ -1,5 +1,11 @@
 package service
 
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+)
+
 type ReferenceRecipe struct {
 	ID         string `json:"id"`
 	Name       string `json:"name"`
@@ -14,7 +20,16 @@ type ReferenceRecipe struct {
 
 // This is an opt-in onboarding catalog, never an automatic scraper or allowlist.
 // Project URLs are public upstream references, not operator deployment addresses.
+// Curated seed URL catalogs live under local seeds/ (gitignored); they are loaded
+// at runtime when present and omitted when missing so serve still works.
 func ReferenceRecipes() []ReferenceRecipe {
+	// Local seed catalogs first (when present), then built-in project references.
+	out := append([]ReferenceRecipe{}, loadLocalSeedRecipes()...)
+	out = append(out, builtInReferenceRecipes()...)
+	return out
+}
+
+func builtInReferenceRecipes() []ReferenceRecipe {
 	return []ReferenceRecipe{
 		{"yuanc-books", "yuanc · 书源目录", "读", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/legado/books.json", "catalog", "catalog", "已接入", "原生 link 字段、路径分类与相对链接；先进入候选箱"},
 		{"yuanc-video", "yuanc · 影视目录", "看", "https://github.com/52liulian/yuanc", "https://raw.githubusercontent.com/52liulian/yuanc/main/data/ysc/videos.json", "catalog", "catalog", "已接入", "单仓、多仓候选分别审核"},
@@ -28,7 +43,7 @@ func ReferenceRecipes() []ReferenceRecipe {
 		{"parser", "LegadoParser", "读", "https://github.com/821938089/LegadoParser", "", "", "runtime", "可选外置", "其 CSS/JSONPath/XPath/部分 JS API 已核对；没有统一 HTTP API，不能伪装为即插即用服务"},
 		{"funread", "funread", "读", "https://github.com/farfarfun/funread", "", "", "tool", "已借鉴", "解析、预览、批量去重思路由 Relay 原生实现"},
 		{"reader-dev", "reader-dev", "读", "https://github.com/warpdotsys/reader-dev", "", "", "runtime", "可选外置", "复杂脚本与浏览器运行时；不自动执行源包中的 JS"},
-		{"pixiv", "PixivSource", "读", "https://github.com/windyhusky/PixivSource", "", "legado-book", "source", "候选", "登录与复杂 JS 需要专门适配；通用转换器明确拒绝"},
+		{"pixiv", "PixivSource", "读", "https://github.com/windyhusky/PixivSource", "https://raw.githubusercontent.com/windyhusky/PixivSource/main/pixiv.json", "legado-book", "source", "已接入", "见 seed-pixivsource-*；登录/复杂 JS 仍需专门运行时"},
 		{"aoaostar", "aoaostar / legado", "读", "https://github.com/aoaostar/legado", "", "legado-book", "source", "候选", "大合集只作为候选池，不自动全量激活"},
 		{"tickmao", "tickmao / Novel", "读", "https://github.com/tickmao/Novel", "", "legado-book", "source", "候选", "优先选择维护者提供的精选文件；源包去重与兼容性报告"},
 		{"shidahuilang", "shidahuilang / shuyuan", "读", "https://github.com/shidahuilang/shuyuan", "", "legado-book", "source", "候选", "上游检查结果不替代本机 live smoke"},
@@ -68,4 +83,27 @@ func ReferenceRecipes() []ReferenceRecipe {
 		{"browserless", "Browserless / Playwright", "工具", "https://github.com/XziXmn/legado-hub/blob/main/docker-compose.browserless.yml", "", "", "runtime", "可选外置", "复杂站点交给 Hub 的受控浏览器；不自动部署"},
 		{"cf-browser", "CloudflareBypassForScraping", "工具", "https://github.com/sarperavci/CloudflareBypassForScraping", "", "", "runtime", "外部参考", "浏览器类工具可由操作者选择；Relay 不实现绕过登录或付费限制"},
 	}
+}
+
+func loadLocalSeedRecipes() []ReferenceRecipe {
+	dir := os.Getenv("RELAY_SEEDS_DIR")
+	if dir == "" {
+		data := os.Getenv("RELAY_DATA_DIR")
+		if data == "" {
+			data = "data"
+		}
+		dir = filepath.Join(data, "seeds")
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			dir = "seeds"
+		}
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "recipes.json"))
+	if err != nil {
+		return nil
+	}
+	var list []ReferenceRecipe
+	if json.Unmarshal(b, &list) != nil {
+		return nil
+	}
+	return list
 }
