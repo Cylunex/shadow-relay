@@ -42,7 +42,11 @@ func (s *Server) workshopRoutes(mux *http.ServeMux) {
 		if e != nil {
 			return e
 		}
-		report := service.ConvertBookPreview(n)
+		mode := ""
+		if in.HubProxyMode != nil {
+			mode = *in.HubProxyMode
+		}
+		report := service.ConvertBookPreview(n, mode)
 		reply(w, 200, report)
 		return nil
 	}))

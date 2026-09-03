@@ -19,7 +19,13 @@ func bookReport(src model.Source, n model.Normalized) bookplugin.Report {
 	for _, item := range n.Items {
 		entries = append(entries, item.Data)
 	}
-	return bookplugin.Convert(src.Protocol, entries, src.ID)
+	report := bookplugin.Convert(src.Protocol, entries, src.ID)
+	for _, entry := range report.Entries {
+		if entry.Recipe != nil && src.HubProxyMode != "" {
+			entry.Recipe.ProxyMode = src.HubProxyMode
+		}
+	}
+	return report
 }
 func (s *Service) BookReport(ctx context.Context, id, revision string) (bookplugin.Report, string, error) {
 	src, e := store.Get[model.Source](ctx, s.DB.Pool, "sources", id)
@@ -201,8 +207,8 @@ func channelOverrides(items []model.Item, sourceID string, rules []model.Channel
 	return out
 }
 
-func ConvertBookPreview(n model.Normalized) bookplugin.Report {
-	return bookReport(model.Source{Protocol: n.Protocol}, n)
+func ConvertBookPreview(n model.Normalized, hubProxyMode string) bookplugin.Report {
+	return bookReport(model.Source{Protocol: n.Protocol, HubProxyMode: hubProxyMode}, n)
 }
 func ScaffoldBook(r bookplugin.Recipe) ([]byte, error) {
 	report := bookplugin.Convert("relay-book", []json.RawMessage{jsonBytes(r)}, "")
@@ -212,7 +218,7 @@ func ScaffoldBook(r bookplugin.Recipe) ([]byte, error) {
 func publicationInputs(items []selected) []any {
 	out := []any{}
 	for _, v := range items {
-		out = append(out, map[string]any{"id": v.Source.ID, "name": v.Source.Name, "revision": v.Revision.ID, "mode": v.Source.Mode, "mediaTypes": v.Source.MediaTypes, "health": v.Source.Health, "score": v.Source.Score, "endpoint": v.Endpoint, "driver": v.Driver})
+		out = append(out, map[string]any{"id": v.Source.ID, "name": v.Source.Name, "revision": v.Revision.ID, "mode": v.Source.Mode, "mediaTypes": v.Source.MediaTypes, "health": v.Source.Health, "score": v.Source.Score, "endpoint": v.Endpoint, "driver": v.Driver, "hubProxyMode": v.Source.HubProxyMode})
 	}
 	return out
 }

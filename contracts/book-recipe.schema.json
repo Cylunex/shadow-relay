@@ -48,6 +48,10 @@
     },
     "chapter": {
       "$ref": "#/$defs/stage"
+    },
+    "proxyMode": {
+      "enum": ["never", "always"],
+      "description": "Hub 运行时代理策略，默认 never；不携带代理地址或凭据。"
     }
   },
   "required": [
@@ -90,10 +94,7 @@
           "type": "string"
         },
         "method": {
-          "enum": [
-            "GET",
-            "POST"
-          ]
+          "enum": ["GET", "POST"]
         },
         "form": {
           "type": "object",

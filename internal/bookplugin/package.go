@@ -33,7 +33,11 @@ func Files(e Entry, updated string) (map[string][]byte, error) {
 	}
 	marshal := func(v any) []byte { b, _ := json.MarshalIndent(v, "", "  "); return append(b, '\n') }
 
-	metadata := map[string]any{"contractVersion": "1.0", "id": e.ID, "name": r.Name, "author": "Shadow Relay", "version": Version(r), "type": "source", "domains": r.Domains, "baseUrls": []string{r.BaseURL}, "capabilities": []string{"search", "detail", "toc", "chapter"}, "enabled": true, "language": r.Language, "auth": map[string]any{"mode": "none"}, "content": map[string]any{"access": "unknown", "paid": "unknown"}, "tags": []string{"thirdparty", "relay-generated"}, "rateLimit": map[string]any{"perHostConcurrency": 1, "minIntervalMs": r.MinIntervalMS}, "proxy": map[string]any{"mode": "never", "required": false}, "browser": map[string]string{"mode": "none"}, "sourceSeed": map[string]string{"type": e.Upstream, "upstreamId": e.SourceID}, "accessStrategy": map[string]string{"search": "http", "detail": "http", "toc": "http", "chapter": "http"}}
+	proxyMode := r.ProxyMode
+	if proxyMode == "" {
+		proxyMode = "never"
+	}
+	metadata := map[string]any{"contractVersion": "1.0", "id": e.ID, "name": r.Name, "author": "Shadow Relay", "version": Version(r), "type": "source", "domains": r.Domains, "baseUrls": []string{r.BaseURL}, "capabilities": []string{"search", "detail", "toc", "chapter"}, "enabled": true, "language": r.Language, "auth": map[string]any{"mode": "none"}, "content": map[string]any{"access": "unknown", "paid": "unknown"}, "tags": []string{"thirdparty", "relay-generated"}, "rateLimit": map[string]any{"perHostConcurrency": 1, "minIntervalMs": r.MinIntervalMS}, "proxy": map[string]any{"mode": proxyMode, "required": proxyMode == "always"}, "browser": map[string]string{"mode": "none"}, "sourceSeed": map[string]string{"type": e.Upstream, "upstreamId": e.SourceID}, "accessStrategy": map[string]string{"search": "http", "detail": "http", "toc": "http", "chapter": "http"}}
 	if r.Language == "" {
 		metadata["language"] = "zh-CN"
 	}

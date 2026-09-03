@@ -12,7 +12,7 @@ Relay 管理源和能力；Emby、LegadoHub、Suwayomi 等领域运行时执行�
 - PostgreSQL 持久队列、定时同步、条件请求、抽样体检、失败退避与隔离。
 - 按优先级、主备角色、媒体类型和健康分编排，多格式不可变发布与稳定订阅。
 - 独立客户端令牌、格式授权、二维码、过期、轮换和吊销。
-- 加密凭据与原始快照、审计、出站地址检查和脱敏客户端反馈。
+- 加密凭据与原始快照、审计、出站地址检查、按源选择 HTTP(S) 代理和脱敏客户端反馈。
 - 连接 Emby、Jellyfin、Dispatcharr、LegadoHub、Suwayomi、Audiobookshelf、Miniflux，检测 API 与拉取状态。
 - 书源工坊：阅读静态规则 / so-novel 转标准 Hub 插件、兼容报告、站点脚手架、独立挂载同步与四阶段体检。
 - 直播频道覆盖编排、M3U/TXT 与 EPG 关联；播客清单制作、合并 RSS；漫画新旧仓索引、净化规则和一键导入。
@@ -45,4 +45,4 @@ make dev
 - [安全与恢复](docs/security.md)
 - [OpenAPI](contracts/openapi.json) · [Bundle Schema](contracts/shadow-media-bundle.schema.json) · [Source Schema](contracts/source.schema.json)
 
-书源聚合执行通过生成的原生插件交给官方 Hub；跨媒体全文搜索、内容代理、Shadow Media 托管模式和听读进度联动仍属于独立客户端/运行时工作。实际部署资料和秘密保存在仓库之外。当前新增实现按要求暂停测试，状态见交付文档。
+书源聚合执行通过生成的原生插件交给官方 Hub；跨媒体全文搜索、内容代理、Shadow Media 托管模式和听读进度联动仍属于独立客户端/运行时工作。实际部署资料和秘密保存在仓库之外。书源与代理的接口验证结果及实网执行限制见交付文档。

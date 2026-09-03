@@ -1,4 +1,6 @@
 export type Source = {
+  proxyId?: string;
+  hubProxyMode?: "never" | "always";
   probeIntervalMinutes?: number;
   smokeKeyword?: string;
   hubPluginId?: string;

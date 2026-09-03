@@ -20,9 +20,7 @@
     "schemas": {
       "SourceInput": {
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -86,6 +84,14 @@
           "hubPluginId": {
             "type": "string",
             "maxLength": 96
+          },
+          "proxyId": {
+            "type": "string",
+            "description": "RELAY_PROXIES 中的配置 ID。创建时省略或空值为直连；更新时省略保留，空值清除。仅 internet 网络可用。"
+          },
+          "hubProxyMode": {
+            "enum": ["never", "always"],
+            "description": "仅 Relay 生成的书源插件支持。never 直连，always 使用 Hub 本机代理。更新时省略保留。"
           }
         }
       },
@@ -149,16 +155,11 @@
                   "type": "boolean"
                 }
               },
-              "required": [
-                "match"
-              ]
+              "required": ["match"]
             }
           }
         },
-        "required": [
-          "name",
-          "members"
-        ]
+        "required": ["name", "members"]
       }
     }
   },
@@ -519,9 +520,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "name"
-                ],
+                "required": ["name"],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -597,9 +596,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "name"
-                ],
+                "required": ["name"],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -713,9 +710,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "name"
-                ],
+                "required": ["name"],
                 "additionalProperties": false,
                 "properties": {
                   "name": {
@@ -2890,10 +2885,7 @@
               "schema": {
                 "type": "object",
                 "additionalProperties": false,
-                "required": [
-                  "sourceId",
-                  "code"
-                ],
+                "required": ["sourceId", "code"],
                 "properties": {
                   "sourceId": {
                     "type": "string"
@@ -3486,9 +3478,7 @@
                     "type": "string"
                   }
                 },
-                "required": [
-                  "content"
-                ]
+                "required": ["content"]
               }
             }
           }
@@ -3590,6 +3580,31 @@
           },
           "409": {
             "description": "Configuration conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/proxies": {
+      "get": {
+        "summary": "列出已配置的代理 ID，不返回地址或凭据",
+        "responses": {
+          "200": {
+            "description": "代理 ID 列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "proxyIds": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

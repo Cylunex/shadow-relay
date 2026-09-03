@@ -31,6 +31,7 @@ type Stage struct {
 	RemoveCSS string              `json:"removeCss,omitempty"`
 }
 type Recipe struct {
+	ProxyMode     string   `json:"proxyMode,omitempty"`
 	Schema        string   `json:"schema"`
 	Name          string   `json:"name"`
 	BaseURL       string   `json:"baseUrl"`
@@ -67,6 +68,9 @@ var jsonPath = regexp.MustCompile(`^\$(?:\.[A-Za-z_][\w-]*|\[(?:[0-9]+|\*)\])*$`
 var attrName = regexp.MustCompile(`^[A-Za-z_][\w:-]*$`)
 
 func Validate(r *Recipe) error {
+	if !slices.Contains([]string{"", "never", "always"}, r.ProxyMode) {
+		return errors.New("proxyMode must be never or always")
+	}
 	if r.Schema != "shadow.book.recipe/v1" || strings.TrimSpace(r.Name) == "" || len(r.Name) > 160 {
 		return errors.New("invalid recipe schema or name")
 	}

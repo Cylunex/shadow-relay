@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ var ErrBlocked = errors.New("target blocked by network policy")
 type Policy struct {
 	Network string
 	Trust   string
+	ProxyID string
 }
 type Result struct {
 	Body                            []byte
@@ -40,6 +42,7 @@ type Fetcher struct {
 	hosts   map[string]*hostState
 	lookup  func(context.Context, string, string) ([]netip.Addr, error)
 	dial    func(context.Context, string, string) (net.Conn, error)
+	proxies map[string]*url.URL
 }
 
 func New(cidrs string) (*Fetcher, error) {
@@ -105,14 +108,19 @@ func (f *Fetcher) client(p Policy) *http.Client {
 		}
 		var conn net.Conn
 		for _, ip := range ips {
-			conn, e = f.dial(ctx, network, net.JoinHostPort(ip.String(), port))
+			address := net.JoinHostPort(ip.Unmap().String(), port)
+			if p.ProxyID != "" {
+				conn, e = f.proxyDial(ctx, f.proxies[p.ProxyID], address)
+			} else {
+				conn, e = f.dial(ctx, network, address)
+			}
 			if e == nil {
 				return conn, nil
 			}
 		}
 		return nil, errors.New("connection failed")
 	}}
-	return &http.Client{Transport: &gatedTransport{f: f, base: tr}, Timeout: 25 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
+	return &http.Client{Transport: &gatedTransport{f: f, base: tr, route: p.ProxyID}, Timeout: 25 * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
 			return errors.New("too many redirects")
 		}
@@ -137,6 +145,9 @@ func (f *Fetcher) PostJSON(ctx context.Context, raw string, p Policy, headers ma
 	return f.request(ctx, http.MethodPost, raw, p, headers, body, limit, false)
 }
 func (f *Fetcher) request(ctx context.Context, method, raw string, p Policy, headers map[string]string, body []byte, limit int64, partial bool) (out Result, err error) {
+	if e := f.ValidateProxy(p); e != nil {
+		return out, e
+	}
 	if e := security.SafeURL(raw); e != nil {
 		return out, e
 	}
@@ -197,8 +208,9 @@ func (f *Fetcher) request(ctx context.Context, method, raw string, p Policy, hea
 
 // Every redirect acquires the destination host's budget. A slot remains held until its body closes.
 type gatedTransport struct {
-	f    *Fetcher
-	base http.RoundTripper
+	f     *Fetcher
+	base  http.RoundTripper
+	route string
 }
 type gatedBody struct {
 	io.ReadCloser
@@ -209,10 +221,10 @@ type gatedBody struct {
 func (b *gatedBody) Close() error { e := b.ReadCloser.Close(); b.once.Do(b.release); return e }
 func (g *gatedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	g.f.mu.Lock()
-	h := g.f.hosts[req.URL.Hostname()]
+	h := g.f.hosts[g.route+"|"+req.URL.Hostname()]
 	if h == nil {
 		h = &hostState{slots: make(chan struct{}, 2)}
-		g.f.hosts[req.URL.Hostname()] = h
+		g.f.hosts[g.route+"|"+req.URL.Hostname()] = h
 	}
 	blocked := time.Now().Before(h.until)
 	g.f.mu.Unlock()

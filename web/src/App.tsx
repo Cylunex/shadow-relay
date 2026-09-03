@@ -2056,6 +2056,8 @@ function SourceDialog({
     mode: source.mode,
     runtimeId: source.runtimeId ?? "",
     network: source.network,
+    proxyId: source.proxyId ?? "",
+    hubProxyMode: source.hubProxyMode ?? "never",
     trust: source.trust,
     updatePolicy: source.updatePolicy,
     intervalMinutes: source.intervalMinutes,

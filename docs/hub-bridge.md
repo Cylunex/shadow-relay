@@ -79,3 +79,8 @@ PYTHONPATH=/path/to/hub/backend python integrations/hub/capture_smoke.py \
 接口按 [Hub 插件契约](https://github.com/XziXmn/legado-hub/blob/cbcdfdf5cf4626c47f4b74ed9745e5ad69d8e437/docs/architecture/source-plugin-contract.zh-CN.md) 与 [console.py](https://github.com/XziXmn/legado-hub/blob/cbcdfdf5cf4626c47f4b74ed9745e5ad69d8e437/backend/app/api/console.py) 实现。Hub 的管理 Cookie 与读者专属 code 不是同一权限。Relay 不伪造永久管理 Token，也不在订阅中携带 Hub 管理凭据。
 
 Relay 及同步工具的出站请求使用 Relay DNS/IP 检查。生成插件的站点请求则委托给 **Hub 的访问上下文**，其网络隔离、重定向与 DNS 策略由 Hub 容器/运行环境承担；不能把 Relay 的 SSRF 防护等同于 Hub 的防护。插件本身限制提取出的链接域名，复杂认证和浏览器仍由人工配置的外部运行时处理。
+
+
+## 书源代理
+
+通过源管理 API 设置 `hubProxyMode: "always"` 后，生成插件声明 `proxy.mode: always`、`required: true`；`never` 恢复直连。插件仍只通过 `ctx.access` 请求，实际代理地址由 Hub 本机配置提供。配置变化会更新插件版本，需要重新发布和同步；Hub live smoke 会拒绝仍加载旧版本的插件。Relay 拉取源文件使用独立的 `proxyId`，两者不会影响 Relay 到 Hub 的管理连接。具体环境变量、请求示例和范围见开发文档。

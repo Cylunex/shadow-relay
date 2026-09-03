@@ -73,7 +73,7 @@ func main() {
 		slog.Error("vault initialization failed", "error", e.Error())
 		os.Exit(1)
 	}
-	f, e := fetch.New(os.Getenv("RELAY_TRUSTED_CIDRS"))
+	f, e := fetch.NewWithProxies(os.Getenv("RELAY_TRUSTED_CIDRS"), os.Getenv("RELAY_PROXIES"))
 	if e != nil {
 		slog.Error(e.Error())
 		os.Exit(1)

@@ -85,3 +85,43 @@ web/               React / TypeScript 控制台
 ```
 
 当前用于私有个人规模，历史永久保留；需自行监控磁盘容量。全局写事务锁、内存编译和部分管理列表全量读取不适合大型公共目录市场。多管理员协作权限、保留策略、S3 快照和分布式 Host 限流属于后续扩展。
+
+
+## 按源配置代理（API）
+
+Relay 拉取源文件的代理与 Hub 访问书站的代理分别配置。默认直连，不继承进程的 `HTTP_PROXY`、`HTTPS_PROXY` 或 `NO_PROXY`。
+
+在被忽略的 `.env` 或服务器秘密环境文件中设置以下变量，然后重启使用该配置的 API/worker：
+
+```sh
+RELAY_PROXIES='{"books":"http://REPLACE_USER:REPLACE_PASSWORD@proxy.example.com:8080"}'
+```
+
+支持 HTTP、HTTPS CONNECT 代理，包括代理 Basic 认证；账户密码中的特殊字符须按 URL 编码。HTTP 目标也使用 CONNECT，因此代理需要允许对应目标端口。当前不支持 SOCKS 代理。配置最多 32 项，ID 只包含字母、数字、下划线、连字符，长度不超过 64。真实地址和凭据不得提交。
+
+管理接口均使用 `Authorization: Bearer REPLACE_ADMIN_TOKEN`：
+
+| 接口/字段 | 用法 |
+|---|---|
+| `GET /api/v1/proxies` | 返回 `{"proxyIds":["books"]}`，不返回地址或密码 |
+| 导入/预览/转换的 `proxyId` | 选择服务器配置；省略或 `""` 为直连 |
+| `PUT /api/v1/sources/{id}` 的 `proxyId` | 省略保留已有配置，`""` 恢复直连，未知 ID 拒绝保存 |
+| 源的 `hubProxyMode` | `never` 为 Hub 书站直连，`always` 使用 Hub 本机代理；更新省略保留 |
+
+代理 ID 应用于该源的 URL 预览、导入、定时/手动同步与由 Relay 发起的内容抽样。仅 `internet` 源可用；Hub 管理 API、目录订阅和其他源不自动继承。配置不可用时请求失败，避免悄悄切换出口。
+
+书源示例请求：
+
+```json
+{
+  "name": "示例书源包",
+  "url": "https://books.example.com/sources.json",
+  "protocol": "legado-book",
+  "proxyId": "books",
+  "hubProxyMode": "always"
+}
+```
+
+`hubProxyMode` 适用于 Relay 生成的 Legado/so-novel/relay-book 插件，转换报告、ZIP 和发布的 `hub/plugins.json` 均带对应策略。代理策略变化会改变插件版本及自动发布输入签名，后续须重新发布并同步到 Hub。Hub 的 `config/app_config.json` 需要启用 `proxy.enabled` 并配置 `proxy.url`；Relay 不向 Hub 传递代理地址/凭据。指定现有手工 `hubPluginId` 的源应直接在 Hub 配置该插件，Relay 拒绝代改其代理策略。传统 `legado/books.json` 不注入运行时代理设置。
+
+接口验证可运行 `go test -race ./...`；设置 `RELAY_TEST_DATABASE_URL` 后书源代理 API 测试会使用独立 schema，覆盖预览、导入、编辑、同步和 ZIP 配置。无需启动浏览器。

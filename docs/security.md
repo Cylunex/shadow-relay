@@ -22,9 +22,13 @@ JSON 中显式的密码、Token、Cookie、Authorization、API key 等字段会�
 
 ## 出站网络
 
+管理员在服务器环境中配置 HTTP(S) CONNECT 代理列表，代理本身是受信任的出站网关，可位于回环或内网。代理凭据只在 CONNECT 握手中发送；管理列表、源快照、订阅及错误信息均不返回代理 URL 或凭据。即使走代理，目标仍由 Relay 解析并检查全部 DNS 答案，CONNECT 使用校验后的 IP，HTTPS 保留源域名的 SNI 和证书验证；每次重定向重新校验。代理仅适用于 internet 源，未知配置或失败不会回退直连。并发与失败熔断按代理 ID 和目标主机隔离。
+
+生成的 Hub 插件仅携带 `proxy.mode/required` 策略，地址和凭据由 Hub 独立配置。该设置不改变 Relay 到 Hub 管理 API 的网络路径。
+
 唯一 HTTP 边界位于 `internal/fetch`：
 
-- 只接受绝对 HTTP(S) URL，不继承进程的 HTTP_PROXY / HTTPS_PROXY，也不暴露任意代理配置。
+- 只接受绝对 HTTP(S) URL，不继承进程的 HTTP_PROXY / HTTPS_PROXY，源只引用服务器 `RELAY_PROXIES` 中的代理 ID，不能提交代理 URL。
 - DNS 在实际 dial 时解析；所有 A/AAAA 都必须通过策略，直接拨号到已检查 IP，TLS 仍验证原 Host。
 - 默认禁止环回、私网、链路本地、组播、共享地址、特殊保留段和常见 IPv4 转换地址。
 - 访问受信 LAN 必须同时设置 trusted、trusted-lan 以及进程显式 CIDR 白名单；环回和元数据地址不可通过白名单开放。

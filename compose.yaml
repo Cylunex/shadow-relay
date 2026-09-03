@@ -25,6 +25,7 @@ services:
       RELAY_PUBLIC_URL: ${RELAY_PUBLIC_URL:?Set the client-facing URL}
       RELAY_TRUSTED_CIDRS: ${RELAY_TRUSTED_CIDRS:-}
       RELAY_WORKERS: ${RELAY_WORKERS:-2}
+      RELAY_PROXIES: ${RELAY_PROXIES:-}
     ports:
       - '${RELAY_BIND_ADDRESS:-127.0.0.1}:${RELAY_PORT:-8080}:8080'
     volumes:

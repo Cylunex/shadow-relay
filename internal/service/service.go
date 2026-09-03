@@ -29,6 +29,8 @@ type Fetcher interface {
 var ErrConflict = errors.New("configuration changed; refresh and retry")
 
 type Input struct {
+	ProxyID              *string           `json:"proxyId,omitempty"`
+	HubProxyMode         *string           `json:"hubProxyMode,omitempty"`
 	ProbeIntervalMinutes int               `json:"probeIntervalMinutes"`
 	SmokeKeyword         string            `json:"smokeKeyword"`
 	HubPluginID          string            `json:"hubPluginId"`
@@ -88,10 +90,16 @@ func defaults(in *Input) error {
 	if len(in.SmokeKeyword) > 120 || len(in.HubPluginID) > 96 || strings.ContainsAny(in.HubPluginID, "/?# ") {
 		return errors.New("invalid smoke keyword or Hub plugin ID")
 	}
+	if in.HubProxyMode != nil && !slices.Contains([]string{"never", "always"}, *in.HubProxyMode) {
+		return errors.New("hubProxyMode must be never or always")
+	}
 	return security.ValidateHeaders(in.Headers)
 }
 func (s *Service) Preview(ctx context.Context, in Input) (model.Normalized, []byte, error) {
 	if e := defaults(&in); e != nil {
+		return model.Normalized{}, nil, e
+	}
+	if e := s.validateProxy(fetch.Policy{Network: in.Network, ProxyID: value(in.ProxyID)}); e != nil {
 		return model.Normalized{}, nil, e
 	}
 	if d, ok := Connectors[in.Protocol]; ok {
@@ -106,7 +114,7 @@ func (s *Service) Preview(ctx context.Context, in Input) (model.Normalized, []by
 		if in.URL == "" {
 			return model.Normalized{}, nil, errors.New("provide URL or content")
 		}
-		res, e := s.Fetch.Get(ctx, in.URL, fetch.Policy{Network: in.Network, Trust: in.Trust}, in.Headers, 8<<20, false)
+		res, e := s.Fetch.Get(ctx, in.URL, fetch.Policy{Network: in.Network, Trust: in.Trust, ProxyID: value(in.ProxyID)}, in.Headers, 8<<20, false)
 		if e != nil {
 			return model.Normalized{}, nil, e
 		}
@@ -204,12 +212,18 @@ func newSource(in Input, n model.Normalized) model.Source {
 	if len(in.MediaTypes) > 0 {
 		media = in.MediaTypes
 	}
-	return model.Source{ProbeIntervalMinutes: in.ProbeIntervalMinutes, SmokeKeyword: in.SmokeKeyword, HubPluginID: in.HubPluginID, ID: model.ID("src"), Name: in.Name, Protocol: n.Protocol, MediaTypes: media, Capabilities: n.Capabilities, Mode: mode, Trust: in.Trust, Network: in.Network, UpdatePolicy: in.UpdatePolicy, IntervalMinutes: in.IntervalMinutes, URL: in.URL, RuntimeID: in.RuntimeID, Health: "unknown", CreatedAt: model.Now(), UpdatedAt: model.Now()}
+	return model.Source{ProxyID: value(in.ProxyID), HubProxyMode: value(in.HubProxyMode), ProbeIntervalMinutes: in.ProbeIntervalMinutes, SmokeKeyword: in.SmokeKeyword, HubPluginID: in.HubPluginID, ID: model.ID("src"), Name: in.Name, Protocol: n.Protocol, MediaTypes: media, Capabilities: n.Capabilities, Mode: mode, Trust: in.Trust, Network: in.Network, UpdatePolicy: in.UpdatePolicy, IntervalMinutes: in.IntervalMinutes, URL: in.URL, RuntimeID: in.RuntimeID, Health: "unknown", CreatedAt: model.Now(), UpdatedAt: model.Now()}
 }
 
 var mediaTypes = []string{"video.movie", "video.series", "video.short", "video.live", "text.novel", "text.ebook", "text.article", "image.comic", "audio.audiobook", "audio.podcast", "audio.music", "audio.radio", "speech.tts", "support.metadata", "support.subtitle", "support.danmaku", "support.epg", "support.lyric"}
 
 func (s *Service) validateRuntime(ctx context.Context, q store.Reader, src model.Source) error {
+	if err := s.validateProxy(fetch.Policy{Network: src.Network, ProxyID: src.ProxyID}); err != nil {
+		return err
+	}
+	if src.HubProxyMode == "always" && (!slices.Contains([]string{"legado-book", "so-novel", "relay-book"}, src.Protocol) || src.HubPluginID != "") {
+		return errors.New("Hub proxy mode requires a Relay-generated book plugin; configure manual plugins in Hub")
+	}
 	if !slices.Contains([]string{"catalog-only", "compiled", "runtime-backed", "direct-client"}, src.Mode) {
 		return errors.New("unsupported execution mode")
 	}
@@ -262,6 +276,12 @@ func (s *Service) EditSource(ctx context.Context, id string, in Input) (model.So
 		v.Name = in.Name
 		v.Trust = in.Trust
 		v.Network = in.Network
+		if in.ProxyID != nil {
+			v.ProxyID = *in.ProxyID
+		}
+		if in.HubProxyMode != nil {
+			v.HubProxyMode = *in.HubProxyMode
+		}
 		v.UpdatePolicy = in.UpdatePolicy
 		v.IntervalMinutes = in.IntervalMinutes
 		v.ProbeIntervalMinutes = in.ProbeIntervalMinutes
@@ -424,7 +444,7 @@ func (s *Service) SyncSource(ctx context.Context, id string) error {
 	if src.LastModified != "" {
 		h["If-Modified-Since"] = src.LastModified
 	}
-	res, e := s.Fetch.Get(ctx, src.URL, fetch.Policy{Network: src.Network, Trust: src.Trust}, h, 8<<20, false)
+	res, e := s.Fetch.Get(ctx, src.URL, fetch.Policy{Network: src.Network, Trust: src.Trust, ProxyID: src.ProxyID}, h, 8<<20, false)
 	if e != nil {
 		return s.recordFailure(ctx, src, "fetch_failed", e)
 	}
@@ -592,7 +612,7 @@ func (s *Service) sample(ctx context.Context, src model.Source, n model.Normaliz
 		p.Code = "credential_unavailable"
 		return p, e
 	}
-	policy := fetch.Policy{Network: src.Network, Trust: src.Trust}
+	policy := fetch.Policy{Network: src.Network, Trust: src.Trust, ProxyID: src.ProxyID}
 	if src.RuntimeID != "" && src.SmokeKeyword != "" && slices.Contains([]string{"legado-book", "so-novel", "relay-book", "legado-hub"}, src.Protocol) {
 		return s.ProbeHub(ctx, src, n)
 	}
@@ -710,4 +730,27 @@ func (s *Service) SetHeaders(ctx context.Context, id string, h map[string]string
 		}
 		return audit(ctx, tx, "secret.replace", id)
 	})
+}
+
+func value(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+func (s *Service) validateProxy(p fetch.Policy) error {
+	if p.ProxyID == "" {
+		return nil
+	}
+	f, ok := s.Fetch.(interface{ ValidateProxy(fetch.Policy) error })
+	if !ok {
+		return errors.New("proxy profiles unavailable")
+	}
+	return f.ValidateProxy(p)
+}
+func (s *Service) ProxyIDs() []string {
+	if f, ok := s.Fetch.(interface{ ProxyIDs() []string }); ok {
+		return f.ProxyIDs()
+	}
+	return []string{}
 }

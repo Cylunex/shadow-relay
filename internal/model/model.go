@@ -17,6 +17,8 @@ func ID(prefix string) string {
 func Now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
 type Source struct {
+	ProxyID              string   `json:"proxyId,omitempty"`
+	HubProxyMode         string   `json:"hubProxyMode,omitempty"`
 	ProbeIntervalMinutes int      `json:"probeIntervalMinutes"`
 	NextProbe            string   `json:"nextProbe,omitempty"`
 	SmokeKeyword         string   `json:"smokeKeyword,omitempty"`

@@ -40,33 +40,16 @@
       }
     },
     "mode": {
-      "enum": [
-        "catalog-only",
-        "compiled",
-        "runtime-backed",
-        "direct-client"
-      ]
+      "enum": ["catalog-only", "compiled", "runtime-backed", "direct-client"]
     },
     "trust": {
-      "enum": [
-        "untrusted",
-        "reviewed",
-        "trusted"
-      ]
+      "enum": ["untrusted", "reviewed", "trusted"]
     },
     "network": {
-      "enum": [
-        "internet",
-        "trusted-lan"
-      ]
+      "enum": ["internet", "trusted-lan"]
     },
     "updatePolicy": {
-      "enum": [
-        "auto",
-        "review",
-        "pinned",
-        "manual"
-      ]
+      "enum": ["auto", "review", "pinned", "manual"]
     },
     "enabled": {
       "type": "boolean"
@@ -110,6 +93,15 @@
     "hubPluginId": {
       "type": "string",
       "maxLength": 96
+    },
+    "proxyId": {
+      "type": "string",
+      "pattern": "^$|^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+      "description": "服务器已配置的 HTTP(S) CONNECT 代理 ID；空值直连，不含代理 URL/凭据。"
+    },
+    "hubProxyMode": {
+      "enum": ["never", "always"],
+      "description": "生成的 Hub 书源插件访问书站的代理策略；使用 Hub 本机配置的代理。"
     }
   }
 }
