@@ -79,7 +79,10 @@ func TestBookLanguageFilterIsAppliedToLegacyExport(t *testing.T) {
 
 func TestPublicationPreviewAndValidationPreservePointer(t *testing.T) {
 	s := harness(t)
-	src := imported(t, s, `[{"bookSourceName":"Book","bookSourceUrl":"https://books.example.com"}]`)
+	src, err := s.Import(t.Context(), Input{Name: "Example source", Content: `[{"bookSourceName":"Book","bookSourceUrl":"https://books.example.com"}]`, Trust: "untrusted"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	set, err := s.SaveSet(t.Context(), "", model.SourceSet{Name: "Reading", Members: []model.Member{{SourceID: src.ID}}})
 	if err != nil {
 		t.Fatal(err)

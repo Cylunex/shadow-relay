@@ -152,7 +152,7 @@ func (s *Service) preparePublication(ctx context.Context, id string, automatic, 
 				reason = "disabled"
 			case src.ActiveRevision == "":
 				reason = "no_approved_revision"
-			case src.Health == "quarantined" || src.Health == "failing" || src.Health == "disabled":
+			case src.Health == "quarantined" || src.Health == "failing" || src.Health == "avoid" || src.Health == "disabled":
 				reason = src.Health
 			case src.Score < m.MinScore:
 				reason = "below_minimum_health"
@@ -192,6 +192,37 @@ func (s *Service) preparePublication(ctx context.Context, id string, automatic, 
 			items = append(items, selected{src, r, m, endpoint, driver})
 		}
 		if len(items) == 0 {
+			if IsAggregateSetID(set.ID) && len(set.Members) == 0 && !preview {
+				// Intentional empty aggregate: publish empty Bundle (same as withdraw).
+				created := model.Now()
+				pub = model.Publication{
+					ID: model.ID("pub"), SetID: set.ID, SourceRevisions: map[string]string{}, Exclusions: excluded,
+					Artifacts: map[string]model.Artifact{}, FormatWarnings: map[string]string{"shadow.json": "aggregate has no enabled members"},
+					CreatedAt: created,
+				}
+				bundle := map[string]any{"schema": "shadow.media.bundle/v1", "bundleId": set.ID, "name": set.Name, "publicationId": pub.ID, "revision": "", "generatedAt": created, "providers": []any{}, "exports": map[string]string{}, "formatWarnings": pub.FormatWarnings}
+				body := jsonBytes(bundle)
+				pub.Revision = "sha256:" + security.Hash(body)
+				bundle["revision"] = pub.Revision
+				body = jsonBytes(bundle)
+				pub.Artifacts["shadow.json"] = model.Artifact{ContentType: "application/json", Body: string(body), Hash: security.Hash(body)}
+				if e = store.Insert(ctx, tx, "publications", pub.ID, pub); e != nil {
+					return e
+				}
+				set.PreviousPublication = set.CurrentPublication
+				set.CurrentPublication = pub.ID
+				set.PublishSignature = "empty-aggregate"
+				set.UpdatedAt = model.Now()
+				if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
+					return e
+				}
+				return audit(ctx, tx, "aggregate.withdraw", set.ID)
+			}
+			if automatic && set.CurrentPublication != "" {
+				// Update/health failure with prior good publication: keep last good, succeed job.
+				pub, e = store.Get[model.Publication](ctx, tx, "publications", set.CurrentPublication)
+				return e
+			}
 			return &PublicationError{Message: "没有可发布的源；请先批准版本并启用源，再检查健康分、过滤条件和运行时。当前发布保持不变。", Exclusions: excluded}
 		}
 		if automatic && (!set.AutoPublish || len(items) < set.MinAvailable || (len(excluded)*100 > set.MaxExcludedPercent*len(members))) {
@@ -321,6 +352,11 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 				imported["constraints"] = provider["constraints"]
 				providers = append(providers, imported)
 			}
+		} else if src.Protocol == "lx-music" {
+			// Descriptor-only: clients use lx-music/sources.json. Do not claim Bundle playback.
+			p.FormatWarnings["lx-music/sources.json"] = "lx-music is a user-source descriptor export, not a Shadow Media playback driver; search/resolve/play happen in a compatible LX client or a future OpenSubsonic path"
+		} else if src.Protocol == "mihon-repo" {
+			p.FormatWarnings["mihon/repos.json"] = "mihon-repo catalogs upstream extension repositories; it is not readable manga content by itself"
 		} else if !n.RequiresRuntime || src.RuntimeID != "" {
 			providers = append(providers, provider)
 		}
@@ -596,6 +632,12 @@ func (s *Service) BindingAction(ctx context.Context, id, action string) (string,
 		switch action {
 		case "revoke":
 			b.Revoked = true
+			if IsAggregateSetID(b.SetID) {
+				// Clear stored live token so settings cannot display a revoked credential.
+				if _, e = tx.Exec(ctx, "DELETE FROM secrets WHERE id=$1", aggregateTokenOwner(b.SetID)); e != nil {
+					return e
+				}
+			}
 		case "rotate":
 			expiry, e := time.Parse(time.RFC3339, b.ExpiresAt)
 			if e != nil || !expiry.After(time.Now()) {
@@ -605,6 +647,17 @@ func (s *Service) BindingAction(ctx context.Context, id, action string) (string,
 			b.Hash = security.Hash([]byte(token))
 			b.Generation++
 			b.Revoked = false
+			if IsAggregateSetID(b.SetID) {
+				owner := aggregateTokenOwner(b.SetID)
+				enc, e := s.Vault.Seal(jsonBytes(map[string]string{"token": token}), owner)
+				if e != nil {
+					return e
+				}
+				sec := model.Secret{ID: owner, OwnerID: owner, Ciphertext: enc, UpdatedAt: model.Now()}
+				if e = store.Put(ctx, tx, "secrets", owner, sec); e != nil {
+					return e
+				}
+			}
 		default:
 			return errors.New("unknown binding action")
 		}

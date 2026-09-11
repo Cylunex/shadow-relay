@@ -11,8 +11,14 @@ import (
 func TestApproveEnableRequiresCurrentStagedRevision(t *testing.T) {
 	s := harness(t)
 	ctx := context.Background()
-	src := imported(t, s, playlist)
-	other := imported(t, s, playlist)
+	src, err := s.Import(ctx, Input{Name: "Example source", Content: playlist, Trust: "untrusted"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := s.Import(ctx, Input{Name: "Other source", Content: playlist, Trust: "untrusted"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, revision := range []string{"", "rev_stale", other.StagedRevision} {
 		if err := s.SourceAction(ctx, src.ID, "approve-enable", revision); err == nil {
 			t.Fatal("approved missing, stale or unrelated revision", revision)
@@ -46,7 +52,10 @@ func TestApproveEnableRequiresCurrentStagedRevision(t *testing.T) {
 func TestApproveEnableMakesImportedSourcePublishable(t *testing.T) {
 	s := harness(t)
 	ctx := context.Background()
-	src := imported(t, s, playlist)
+	src, err := s.Import(ctx, Input{Name: "Example source", Content: playlist, Trust: "untrusted"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := s.SourceAction(ctx, src.ID, "disable", ""); err != nil {
 		t.Fatal(err)
 	}

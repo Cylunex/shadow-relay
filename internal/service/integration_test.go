@@ -58,6 +58,19 @@ func imported(t *testing.T, s *Service, body string) model.Source {
 }
 func approve(t *testing.T, s *Service, src model.Source) {
 	t.Helper()
+	got, e := store.Get[model.Source](context.Background(), s.DB.Pool, "sources", src.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if got.Enabled && got.ActiveRevision != "" {
+		return // already auto-enabled on import
+	}
+	if got.StagedRevision != "" {
+		if e := s.SourceAction(context.Background(), src.ID, "approve-enable", got.StagedRevision); e != nil {
+			t.Fatal(e)
+		}
+		return
+	}
 	for _, a := range []string{"approve", "enable"} {
 		if e := s.SourceAction(context.Background(), src.ID, a, ""); e != nil {
 			t.Fatal(e)
@@ -68,13 +81,20 @@ func TestPublishBindingAndRollbackLifecycle(t *testing.T) {
 	s := harness(t)
 	ctx := context.Background()
 	src := imported(t, s, playlist)
-	if src.Enabled || src.ActiveRevision != "" {
-		t.Fatal("import bypassed review")
+	if !src.Enabled || src.ActiveRevision == "" {
+		t.Fatal("reviewed import should auto-enable")
 	}
-	if e := s.SourceAction(ctx, src.ID, "enable", ""); e == nil {
+	// Untrusted imports still require approval.
+	untrusted, e := s.Import(ctx, Input{Name: "Untrusted", Content: playlist, Trust: "untrusted"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if untrusted.Enabled || untrusted.ActiveRevision != "" {
+		t.Fatal("untrusted import bypassed review")
+	}
+	if e := s.SourceAction(ctx, untrusted.ID, "enable", ""); e == nil {
 		t.Fatal("enabled unreviewed source")
 	}
-	approve(t, s, src)
 	set, e := s.SaveSet(ctx, "", model.SourceSet{Name: "Home", Members: []model.Member{{SourceID: src.ID, Priority: 100, MinScore: 50}}})
 	if e != nil {
 		t.Fatal(e)
@@ -142,8 +162,8 @@ func TestQuarantinePreservesLastKnownGoodAndPublicationIsolation(t *testing.T) {
 		_ = s.Probe(ctx, src.ID)
 	}
 	v, _ := store.Get[model.Source](ctx, s.DB.Pool, "sources", src.ID)
-	if v.Health != "quarantined" {
-		t.Fatalf("expected quarantine: %+v", v)
+	if v.Health != "avoid" {
+		t.Fatalf("expected soft-avoid (not permanent quarantine): %+v", v)
 	}
 	if _, e = s.Publish(ctx, set.ID); e == nil {
 		t.Fatal("empty publication replaced good one")
@@ -256,8 +276,17 @@ func TestQueueConcurrentClaimAndWorkerRestartLease(t *testing.T) {
 		}
 	}
 	jobs, e := s.Jobs(ctx)
-	if e != nil || len(jobs) != 1 {
-		t.Fatal("dedup failed", e)
+	if e != nil {
+		t.Fatal(e)
+	}
+	probes := 0
+	for _, j := range jobs {
+		if j.Kind == "source.probe" && j.TargetID == src.ID && (j.Status == "queued" || j.Status == "running") {
+			probes++
+		}
+	}
+	if probes != 1 {
+		t.Fatal("dedup failed", probes, jobs)
 	}
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
@@ -266,8 +295,17 @@ func TestQueueConcurrentClaimAndWorkerRestartLease(t *testing.T) {
 	}
 	wg.Wait()
 	jobs, _ = s.Jobs(ctx)
-	if jobs[0].Status != "succeeded" || jobs[0].Attempts != 1 {
-		t.Fatalf("job claimed more than once: %+v", jobs)
+	found := false
+	for _, j := range jobs {
+		if j.Kind == "source.probe" && j.TargetID == src.ID {
+			if j.Status != "succeeded" || j.Attempts != 1 {
+				t.Fatalf("job claimed more than once: %+v", j)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("probe job missing after workers", jobs)
 	}
 	id, e := s.Enqueue(ctx, "source.probe", src.ID)
 	if e != nil {

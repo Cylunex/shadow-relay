@@ -192,8 +192,26 @@ func (s *Service) Import(ctx context.Context, in Input) (model.Source, error) {
 		}
 		return audit(ctx, tx, "source.import", src.ID)
 	})
-	return src, e
+	if e != nil {
+		return src, e
+	}
+	// Ordinary manual imports with reviewed/trusted trust become live immediately
+	// and join aggregates. Untrusted and catalog-accepted paths stay staged.
+	if autoEnableImport(src) {
+		if e = s.SourceAction(ctx, src.ID, "approve-enable", src.StagedRevision); e != nil {
+			return src, e
+		}
+		return store.Get[model.Source](ctx, s.DB.Pool, "sources", src.ID)
+	}
+	return src, nil
 }
+
+// autoEnableImport skips the approval gate for clean operator imports.
+// Catalog accepts never call Import; embedded-credential/security failures never reach here.
+func autoEnableImport(src model.Source) bool {
+	return src.CatalogID == "" && src.StagedRevision != "" && (src.Trust == "reviewed" || src.Trust == "trusted")
+}
+
 func newSource(in Input, n model.Normalized) model.Source {
 	mode := in.Mode
 	if mode == "" {
@@ -458,8 +476,7 @@ func (s *Service) DeleteSource(ctx context.Context, id string) error {
 	if e != nil {
 		return e
 	}
-	_ = s.ensureAggregatePublished(ctx, AggregateTypeFor(proto, media))
-	return nil
+	return s.ensureAggregatePublished(ctx, AggregateTypeFor(proto, media))
 }
 func (s *Service) SyncSource(ctx context.Context, id string) error {
 	src, e := store.Get[model.Source](ctx, s.DB.Pool, "sources", id)
@@ -607,14 +624,17 @@ func (s *Service) saveProbe(ctx context.Context, src model.Source, p model.Probe
 			}
 		} else {
 			v.Failures++
-			if v.Health != "disabled" {
+			if v.Health != "disabled" && v.Health != "quarantined" {
 				v.Score = max(0, 60-v.Failures*20)
 				v.Health = "degraded"
 				if v.Failures >= 2 {
 					v.Health = "failing"
 				}
+				// Soft-avoid: ordinary probe/sync failures schedule reprobe instead of permanent quarantine.
+				// Explicit quarantine action and security failures still use quarantined.
 				if v.Failures >= 3 {
-					v.Health = "quarantined"
+					v.Health = "avoid"
+					v.NextProbe = time.Now().Add(30 * time.Minute).UTC().Format(time.RFC3339)
 				}
 			}
 		}

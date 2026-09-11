@@ -76,10 +76,8 @@ func TestHTTPPublicationRevocationBeforeConditionalGetAndNoSecretReadback(t *tes
 	if e != nil {
 		t.Fatal(e)
 	}
-	for _, a := range []string{"approve", "enable"} {
-		if e = s.Service.SourceAction(ctx, src.ID, a, ""); e != nil {
-			t.Fatal(e)
-		}
+	if !src.Enabled || src.ActiveRevision == "" {
+		t.Fatal("reviewed import should auto-enable")
 	}
 	set, e := s.Service.SaveSet(ctx, "", model.SourceSet{Name: "Home", Members: []model.Member{{SourceID: src.ID}}})
 	if e != nil {
@@ -141,7 +139,11 @@ func TestRawSnapshotRequiresCorrectOwner(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	path := "/api/v1/sources/" + src.ID + "/revisions/" + src.StagedRevision + "/raw"
+	rev := src.ActiveRevision
+	if rev == "" {
+		rev = src.StagedRevision
+	}
+	path := "/api/v1/sources/" + src.ID + "/revisions/" + rev + "/raw"
 	w := request(t, h, s.AdminToken, "GET", path, nil)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "#EXTM3U") {
 		t.Fatal("snapshot unavailable")

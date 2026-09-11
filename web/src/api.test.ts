@@ -1,9 +1,27 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, apiUpload, setCredential } from "./api";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api, apiUpload, hasCredential, setCredential } from "./api";
+
+const memory = new Map<string, string>();
+
+beforeEach(() => {
+  memory.clear();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (k: string) => memory.get(k) ?? null,
+    setItem: (k: string, v: string) => {
+      memory.set(k, v);
+    },
+    removeItem: (k: string) => {
+      memory.delete(k);
+    },
+  });
+  setCredential("");
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
+
 describe("API boundary", () => {
   it("uploads multipart data with the deployment prefix and browser-generated boundary", async () => {
     vi.stubEnv("BASE_URL", "/relay/");
@@ -55,5 +73,13 @@ describe("API boundary", () => {
     await expect(api("source-sets/a/publish", "POST")).rejects.toThrow(
       "configuration changed",
     );
+  });
+  it("persists admin credential in sessionStorage across setCredential calls", () => {
+    setCredential("persisted-admin-token");
+    expect(hasCredential()).toBe(true);
+    expect(memory.get("shadow-relay.admin.token")).toBe("persisted-admin-token");
+    setCredential("");
+    expect(hasCredential()).toBe(false);
+    expect(memory.get("shadow-relay.admin.token")).toBeUndefined();
   });
 });

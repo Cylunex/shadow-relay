@@ -1,6 +1,21 @@
+const CREDENTIAL_KEY = "shadow-relay.admin.token";
 let credential = "";
+try {
+  credential = sessionStorage.getItem(CREDENTIAL_KEY) ?? "";
+} catch {
+  credential = "";
+}
 export function setCredential(token: string) {
   credential = token;
+  try {
+    if (token) sessionStorage.setItem(CREDENTIAL_KEY, token);
+    else sessionStorage.removeItem(CREDENTIAL_KEY);
+  } catch {
+    /* private mode: memory-only fallback */
+  }
+}
+export function hasCredential() {
+  return credential.length > 0;
 }
 export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
   const response = await fetch(import.meta.env.BASE_URL + "api/v1/" + path, {
@@ -40,6 +55,7 @@ export const labels: Record<string, string> = {
   invalid: "无效版本",
   degraded: "待完善",
   failing: "异常",
+  avoid: "暂避",
   quarantined: "已隔离",
   disabled: "已停用",
   unknown: "未体检",

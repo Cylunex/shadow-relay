@@ -146,6 +146,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(() => hasCredential());
   const refresh = useCallback(async () => {
     const [
       sources,
@@ -209,10 +210,38 @@ export default function App() {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    if (!hasCredential()) {
+      setBootstrapping(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        await refresh();
+        if (!cancelled) setAuthed(true);
+      } catch {
+        setCredential("");
+        if (!cancelled) setAuthed(false);
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
   async function login(token: string) {
     setCredential(token);
     await refresh();
     setAuthed(true);
+  }
+  if (bootstrapping) {
+    return (
+      <div className="app-shell login-shell">
+        <div className="login-card">正在恢复会话...</div>
+      </div>
+    );
   }
   if (!authed) return <Login login={login} />;
   const pending =

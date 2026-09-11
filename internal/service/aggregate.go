@@ -130,7 +130,7 @@ func (s *Service) ListAggregates(ctx context.Context, publicBase string) ([]Aggr
 			return nil, e
 		}
 		bID := aggregateBindingID(def.Slug)
-		if _, e := store.Get[model.Binding](ctx, s.DB.Pool, "bindings", bID); e == nil {
+		if b, e := store.Get[model.Binding](ctx, s.DB.Pool, "bindings", bID); e == nil && !b.Revoked {
 			info.BindingID = bID
 			if tok, err := s.aggregateToken(ctx, def.Slug); err == nil && tok != "" {
 				info.Token = tok
@@ -181,7 +181,7 @@ func (s *Service) syncAggregateAfterVisibility(ctx context.Context, src model.So
 			return e
 		}
 		if setID != "" {
-			_ = s.ensureAggregatePublished(ctx, bucketByType(AggregateTypeFor(src.Protocol, src.MediaTypes)).Type)
+			return s.ensureAggregatePublished(ctx, bucketByType(AggregateTypeFor(src.Protocol, src.MediaTypes)).Type)
 		}
 		return nil
 	default:
@@ -321,17 +321,66 @@ func (s *Service) ensureAggregatePublished(ctx context.Context, typeName string)
 		return e
 	}
 	if len(set.Members) == 0 {
-		return nil
+		// Intentional empty: withdraw stale publication so clients stop serving removed members.
+		return s.withdrawAggregatePublication(ctx, def.Slug)
 	}
 	_, e = s.Publish(ctx, def.Slug)
 	if e != nil {
-		// Empty eligibility after disable is expected; keep prior publication.
-		if strings.Contains(e.Error(), "no eligible sources") {
+		var pe *PublicationError
+		if errors.As(e, &pe) {
+			// Members remain but none eligible (health/update failure): keep last good.
 			return nil
+		}
+		// Transient publish failure: enqueue durable retry (coalesced) without blocking callers forever.
+		if _, enq := s.Enqueue(ctx, "set.publish", def.Slug); enq != nil && !errors.Is(enq, store.ErrNotFound) {
+			return errors.Join(e, enq)
 		}
 		return e
 	}
 	return nil
+}
+
+// withdrawAggregatePublication publishes an empty Bundle and moves the stable pointer.
+func (s *Service) withdrawAggregatePublication(ctx context.Context, setID string) error {
+	return s.DB.Write(ctx, func(tx *store.Tx) error {
+		set, e := store.Get[model.SourceSet](ctx, tx, "source_sets", setID)
+		if e != nil {
+			return e
+		}
+		if len(set.Members) != 0 {
+			return nil
+		}
+		if set.PublishSignature == "empty-aggregate" && set.CurrentPublication != "" {
+			return nil
+		}
+		created := model.Now()
+		pub := model.Publication{
+			ID: model.ID("pub"), SetID: setID, SourceRevisions: map[string]string{}, Exclusions: map[string]string{},
+			Artifacts: map[string]model.Artifact{}, FormatWarnings: map[string]string{"shadow.json": "aggregate has no enabled members"},
+			CreatedAt: created,
+		}
+		bundle := map[string]any{
+			"schema": "shadow.media.bundle/v1", "bundleId": setID, "name": set.Name, "publicationId": pub.ID,
+			"revision": "", "generatedAt": created, "providers": []any{}, "exports": map[string]string{},
+			"formatWarnings": pub.FormatWarnings,
+		}
+		body := jsonBytes(bundle)
+		pub.Revision = "sha256:" + security.Hash(body)
+		bundle["revision"] = pub.Revision
+		body = jsonBytes(bundle)
+		pub.Artifacts["shadow.json"] = model.Artifact{ContentType: "application/json", Body: string(body), Hash: security.Hash(body)}
+		if e = store.Insert(ctx, tx, "publications", pub.ID, pub); e != nil {
+			return e
+		}
+		set.PreviousPublication = set.CurrentPublication
+		set.CurrentPublication = pub.ID
+		set.PublishSignature = "empty-aggregate"
+		set.UpdatedAt = model.Now()
+		if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
+			return e
+		}
+		return audit(ctx, tx, "aggregate.withdraw", setID)
+	})
 }
 
 // stripAggregateMembershipTx removes sourceID from aggregate sets only (manual sets untouched).
@@ -415,12 +464,10 @@ func (s *Service) ReconcileAggregates(ctx context.Context, publicBase string) (R
 			return ReconcileResult{}, e
 		}
 	}
-	touched := map[string]bool{}
-	for _, src := range eligible {
-		touched[AggregateTypeFor(src.Protocol, src.MediaTypes)] = true
-	}
-	for t := range touched {
-		_ = s.ensureAggregatePublished(ctx, t)
+	for _, def := range aggregateBuckets {
+		if e := s.ensureAggregatePublished(ctx, def.Type); e != nil {
+			return ReconcileResult{}, e
+		}
 	}
 	infos, e := s.ListAggregates(ctx, publicBase)
 	if e != nil {

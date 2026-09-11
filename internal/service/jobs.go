@@ -120,13 +120,19 @@ func (s *Service) schedule(ctx context.Context) error {
 			return e
 		}
 		for _, src := range sources {
-			if src.Enabled && src.ActiveRevision != "" && src.ProbeIntervalMinutes > 0 {
+			// Soft-avoid sources always get a reprobe window; ordinary probes keep ProbeIntervalMinutes.
+			reprobe := src.Enabled && src.ActiveRevision != "" && (src.ProbeIntervalMinutes > 0 || src.Health == "avoid")
+			if reprobe {
 				due, _ := time.Parse(time.RFC3339, src.NextProbe)
 				if !due.After(time.Now()) {
 					if e = enqueue(ctx, tx, model.ID("job"), "source.probe", src.ID); e != nil {
 						return e
 					}
-					src.NextProbe = time.Now().Add(time.Duration(src.ProbeIntervalMinutes) * time.Minute).UTC().Format(time.RFC3339)
+					interval := src.ProbeIntervalMinutes
+					if interval <= 0 {
+						interval = 30
+					}
+					src.NextProbe = time.Now().Add(time.Duration(interval) * time.Minute).UTC().Format(time.RFC3339)
 					if e = store.Put(ctx, tx, "sources", src.ID, src); e != nil {
 						return e
 					}
