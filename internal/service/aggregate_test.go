@@ -18,20 +18,27 @@ func TestAggregateTypeForBucketing(t *testing.T) {
 		{"m3u", nil, "iptv"},
 		{"xmltv", nil, "iptv"},
 		{"dispatcharr", nil, "iptv"},
-		{"legado-book", nil, "legado"},
-		{"legado-rss", nil, "legado"},
-		{"so-novel", nil, "legado"},
-		{"relay-book", nil, "legado"},
-		{"mihon-repo", nil, "legado"},
-		{"opds2", nil, "legado"},
+		{"legado-book", nil, "novel"},
+		{"legado-rss", nil, "rss"},
+		{"so-novel", nil, "novel"},
+		{"relay-book", nil, "novel"},
+		{"mihon-repo", nil, "manga"},
+		{"opds2", nil, "novel"},
+		{"legado-tts", nil, "audiobook"},
+		{"podcast", nil, "audiobook"},
+		{"lx-music", nil, "music"},
+		{"music-playlist", nil, "music"},
 		{"rss", nil, "rss"},
 		{"atom", nil, "rss"},
-		{"podcast", nil, "rss"},
 		{"json-feed", nil, "rss"},
+		{"rss", []string{"audio.music"}, "music"},
 		{"emby", nil, "other"},
 		{"jellyfin", nil, "other"},
 		{"", []string{"video.live"}, "iptv"},
-		{"", []string{"text.novel"}, "legado"},
+		{"", []string{"text.novel"}, "novel"},
+		{"", []string{"image.comic"}, "manga"},
+		{"", []string{"speech.tts"}, "audiobook"},
+		{"", []string{"audio.music"}, "music"},
 		{"", []string{"audio.podcast"}, "rss"},
 		{"unknown", nil, "other"},
 	}
@@ -141,5 +148,36 @@ func TestAggregateKeepsManualSetsIntact(t *testing.T) {
 	}
 	if len(agg.Members) != 0 {
 		t.Fatalf("aggregate should drop on disable: %+v", agg.Members)
+	}
+}
+
+func TestReconcileAggregatesRebuckets(t *testing.T) {
+	s := harness(t)
+	ctx := context.Background()
+	src := imported(t, s, `[{"bookSourceName":"Example book","bookSourceUrl":"https://books.example.com","ruleSearch":{"name":"a@text"}}]`)
+	approve(t, s, src)
+	set, e := store.Get[model.SourceSet](ctx, s.DB.Pool, "source_sets", "aggregate-novel")
+	if e != nil || len(set.Members) != 1 {
+		t.Fatalf("expected novel membership: %v %+v", e, set)
+	}
+	// Simulate legacy bucket left-over then reconcile.
+	_ = s.DB.Write(ctx, func(tx *store.Tx) error {
+		legacy := model.SourceSet{ID: "aggregate-legado", Name: "legacy", Members: []model.Member{{SourceID: src.ID}}, UpdatedAt: model.Now()}
+		return store.Put(ctx, tx, "source_sets", legacy.ID, legacy)
+	})
+	result, e := s.ReconcileAggregates(ctx, "https://relay.example.com")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if result.EnabledSources != 1 || result.Memberships != 1 {
+		t.Fatalf("reconcile counts: %+v", result)
+	}
+	legacy, e := store.Get[model.SourceSet](ctx, s.DB.Pool, "source_sets", "aggregate-legado")
+	if e != nil || len(legacy.Members) != 0 {
+		t.Fatalf("legacy should be cleared: %v %+v", e, legacy)
+	}
+	set, e = store.Get[model.SourceSet](ctx, s.DB.Pool, "source_sets", "aggregate-novel")
+	if e != nil || len(set.Members) != 1 || set.Members[0].SourceID != src.ID {
+		t.Fatalf("novel membership after reconcile: %v %+v", e, set)
 	}
 }

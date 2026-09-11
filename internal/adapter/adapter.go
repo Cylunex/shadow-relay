@@ -30,6 +30,8 @@ var registry = []Description{
 	{"so-novel", []string{"text.novel"}, []string{"search", "detail", "toc", "chapter"}, true},
 	{"relay-book", []string{"text.novel"}, []string{"search", "detail", "toc", "chapter"}, true},
 	{"podcast", []string{"audio.podcast"}, []string{"browse", "stream"}, false},
+	{"lx-music", []string{"audio.music"}, []string{"browse", "search", "stream"}, false},
+	{"music-playlist", []string{"audio.music"}, []string{"browse", "stream"}, false},
 	{"m3u", []string{"video.live"}, []string{"live", "stream"}, false},
 	{"xmltv", []string{"support.epg"}, []string{"epg"}, false},
 	{"tvbox", []string{"video.movie", "video.series"}, []string{"browse", "search", "stream"}, false},
@@ -110,10 +112,16 @@ func Parse(b []byte, hint, base string) (model.Normalized, error) {
 	} else if bytes.HasPrefix(b, []byte("{")) || bytes.HasPrefix(b, []byte("[")) {
 		n, e = parseJSON(b, hint, base)
 	} else {
-		if hint != "" && hint != "m3u" {
+		if hint != "" && hint != "m3u" && hint != "music-playlist" {
 			return n, errors.New("text input requires M3U/TXT format")
 		}
 		n, e = parseM3U(string(b), base)
+		if e == nil && (hint == "" || hint == "music-playlist") && audioOnlyPlaylist(n) {
+			m, _ := Base("music-playlist")
+			m.Items = n.Items
+			m.Warnings = append(slices.Clone(n.Warnings), "Detected audio-only M3U as music-playlist")
+			n = m
+		}
 	}
 	if e != nil {
 		return n, e
@@ -227,6 +235,8 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			protocol = "relay-book"
 		case o["schema"] == "shadow.podcast/v1":
 			protocol = "podcast"
+		case o["schema"] == "shadow.lx-music/v1":
+			protocol = "lx-music"
 		case o["search"] != nil && o["toc"] != nil:
 			protocol = "so-novel"
 		case o["pattern"] != nil && o["replacement"] != nil:
@@ -467,7 +477,7 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			n.Items = append(n.Items, model.Item{ID: str(s["id"]), Name: str(s["name"]), URL: resolve(base, str(s["endpoint"])), Data: raw(s)})
 		}
 		n.Config = raw(o)
-	case "mihon-repo", "legado-replace", "so-novel", "relay-book", "podcast":
+	case "mihon-repo", "legado-replace", "so-novel", "relay-book", "podcast", "lx-music":
 		return extraJSON(n, v, base)
 	default:
 		return n, errors.New("JSON is not supported for this protocol")
@@ -476,6 +486,31 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 }
 
 var attrRE = regexp.MustCompile(`([\w-]+)="([^"]*)"`)
+
+func audioOnlyPlaylist(n model.Normalized) bool {
+	if len(n.Items) == 0 {
+		return false
+	}
+	for _, item := range n.Items {
+		path := strings.ToLower(strings.Split(item.URL, "?")[0])
+		audio := false
+		for _, ext := range []string{".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav", ".wma"} {
+			if strings.HasSuffix(path, ext) {
+				audio = true
+				break
+			}
+		}
+		if !audio {
+			return false
+		}
+		for _, ext := range []string{".m3u8", ".ts", ".mp4", ".mkv", ".flv", ".avi"} {
+			if strings.HasSuffix(path, ext) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 func parseM3U(body, base string) (model.Normalized, error) {
 	n, _ := Base("m3u")

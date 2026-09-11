@@ -16,7 +16,7 @@ func TestProtocolFixtures(t *testing.T) {
 		{"m3u", `#EXTM3U
 #EXTINF:-1 tvg-id="n1" group-title="News" tvg-logo="https://media.example.com/logo.png",News
 https://media.example.com/live.m3u8`, "", 1},
-		{"m3u", "News,#genre#\nRadio,https://media.example.com/radio.mp3", "", 1},
+		{"music-playlist", "News,#genre#\nRadio,https://media.example.com/radio.mp3", "", 1},
 		{"tvbox", `{ // https://quoted.example.com
  "sites":[{"key":"safe","name":"CMS","type":1,"api":"https://media.example.com/api.php",},],}`, "", 1},
 		{"tvbox", `{"urls":[{"name":"TV","url":"https://media.example.com/config.json"}]}`, "", 1},

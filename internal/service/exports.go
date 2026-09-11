@@ -52,6 +52,8 @@ func extendedArtifacts(setID, setName, generatedAt string, items []selected, war
 	report := bookplugin.Report{SetID: setID, GeneratedAt: generatedAt, Schema: "shadow.hub.plugins/v1", Entries: []bookplugin.Entry{}}
 	repos := []any{}
 	podcastItems := []model.Item{}
+	lxSources := []any{}
+	musicTracks := []model.Item{}
 	seenAudio := map[string]bool{}
 	for _, v := range items {
 		if len(v.Member.Devices) > 0 || len(v.Member.Networks) > 0 {
@@ -59,6 +61,21 @@ func extendedArtifacts(setID, setName, generatedAt string, items []selected, war
 		}
 		n, src := v.Revision.Normalized, v.Source
 		switch src.Protocol {
+		case "lx-music":
+			var cfg map[string]any
+			_ = json.Unmarshal(n.Config, &cfg)
+			if cfg == nil {
+				cfg = map[string]any{}
+			}
+			cfg["sourceId"] = src.ID
+			lxSources = append(lxSources, cfg)
+		case "music-playlist":
+			for _, track := range filtered(n.Items, v.Member) {
+				if !seenAudio[track.URL] {
+					musicTracks = append(musicTracks, track)
+					seenAudio[track.URL] = true
+				}
+			}
 		case "podcast":
 			for _, episode := range filtered(n.Items, v.Member) {
 				if !seenAudio[episode.URL] {
@@ -101,6 +118,12 @@ func extendedArtifacts(setID, setName, generatedAt string, items []selected, war
 	}
 	if len(podcastItems) > 0 {
 		add("podcasts/feed.xml", "application/rss+xml", podcastBody(model.Normalized{Items: podcastItems, Config: jsonBytes(map[string]string{"title": setName, "description": "Published with Shadow Relay", "link": BasePlaceholder + "/podcasts/feed.xml"})}))
+	}
+	if len(lxSources) > 0 {
+		add("lx-music/sources.json", "application/json", string(jsonBytes(map[string]any{"schema": "shadow.lx-music.sources/v1", "sources": lxSources, "note": "Script files live under the Relay data directory; credentials stay in the vault"})))
+	}
+	if len(musicTracks) > 0 {
+		add("music/playlist.m3u", "audio/x-mpegurl", playlistBody(musicTracks))
 	}
 	return nil
 }

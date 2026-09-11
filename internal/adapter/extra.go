@@ -146,6 +146,41 @@ func extraJSON(n model.Normalized, v any, base string) (model.Normalized, error)
 			return n, errors.New("podcast has no episodes")
 		}
 		n.Config = raw(o)
+	case "lx-music":
+		if str(o["schema"]) != "shadow.lx-music/v1" {
+			return n, errors.New("lx-music requires schema shadow.lx-music/v1")
+		}
+		name := str(o["name"])
+		apiURL := str(o["apiUrl"])
+		scriptPath := str(o["scriptPath"])
+		if name == "" || apiURL == "" || scriptPath == "" {
+			return n, errors.New("lx-music requires name, apiUrl and scriptPath")
+		}
+		if e := security.SafeURL(apiURL); e != nil {
+			return n, e
+		}
+		// Secrets (apiKey/signSalt/fingerprint) must live in the credential vault, never in the document.
+		for _, banned := range []string{"apiKey", "signSalt", "fingerprint", "api_key", "sign_salt"} {
+			if o[banned] != nil && str(o[banned]) != "" {
+				return n, errors.New("lx-music secrets belong in the credential vault, not the source document")
+			}
+		}
+		if strings.Contains(scriptPath, "..") || strings.HasPrefix(scriptPath, "/") || strings.ContainsAny(scriptPath, "\x00\r\n") {
+			return n, errors.New("lx-music scriptPath must be a relative path under data/")
+		}
+		if !strings.HasPrefix(scriptPath, "runtime/lx-music/") || !strings.HasSuffix(strings.ToLower(scriptPath), ".js") {
+			return n, errors.New("lx-music scriptPath must be under runtime/lx-music/ and end with .js")
+		}
+		cfg := map[string]any{
+			"schema":     "shadow.lx-music/v1",
+			"name":       name,
+			"version":    o["version"],
+			"apiUrl":     apiURL,
+			"scriptPath": scriptPath,
+		}
+		n.Items = []model.Item{{Name: name, URL: apiURL, Group: "lx-music", Data: raw(cfg)}}
+		n.Config = raw(cfg)
+		n.Warnings = append(n.Warnings, "LX Music user-source script runs in a compatible client; Relay stores the descriptor and vaults secrets only")
 	default:
 		return n, fmt.Errorf("unsupported extra protocol %s", n.Protocol)
 	}

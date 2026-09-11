@@ -16,7 +16,7 @@ import (
 // Aggregate buckets group client-visible sources by protocol/media so operators
 // and clients subscribe to one type set instead of managing SourceSets manually.
 type AggregateBucket struct {
-	Type string // tvbox | iptv | legado | rss | other
+	Type string // tvbox | iptv | novel | manga | audiobook | music | rss | other
 	Slug string // stable SourceSet id, e.g. aggregate-tvbox
 	Name string
 }
@@ -24,10 +24,16 @@ type AggregateBucket struct {
 var aggregateBuckets = []AggregateBucket{
 	{Type: "tvbox", Slug: "aggregate-tvbox", Name: "聚合·TVBox"},
 	{Type: "iptv", Slug: "aggregate-iptv", Name: "聚合·IPTV"},
-	{Type: "legado", Slug: "aggregate-legado", Name: "聚合·阅读"},
+	{Type: "novel", Slug: "aggregate-novel", Name: "聚合·小说"},
+	{Type: "manga", Slug: "aggregate-manga", Name: "聚合·漫画"},
+	{Type: "audiobook", Slug: "aggregate-audiobook", Name: "聚合·有声书"},
+	{Type: "music", Slug: "aggregate-music", Name: "聚合·音乐"},
 	{Type: "rss", Slug: "aggregate-rss", Name: "聚合·RSS"},
 	{Type: "other", Slug: "aggregate-other", Name: "聚合·其他"},
 }
+
+// legacyAggregateSlugs are retired bucket IDs kept only so membership cleanup/reconcile can clear them.
+var legacyAggregateSlugs = []string{"aggregate-legado"}
 
 func AggregateDefs() []AggregateBucket { return slices.Clone(aggregateBuckets) }
 
@@ -37,29 +43,44 @@ func IsAggregateSetID(id string) bool {
 			return true
 		}
 	}
-	return false
+	return slices.Contains(legacyAggregateSlugs, id)
 }
 
 // AggregateTypeFor maps a source protocol (and mediaTypes when needed) to a bucket type.
 func AggregateTypeFor(protocol string, mediaTypes []string) string {
 	p := strings.ToLower(strings.TrimSpace(protocol))
+	// Media-tag override for feeds that stay on rss/atom/json-feed/opml protocols.
+	if slices.Contains(mediaTypes, "audio.music") && (p == "rss" || p == "atom" || p == "json-feed" || p == "opml" || p == "") {
+		return "music"
+	}
 	switch p {
 	case "tvbox":
 		return "tvbox"
 	case "m3u", "xmltv", "dispatcharr":
 		return "iptv"
-	case "legado-book", "legado-rss", "legado-tts", "legado-replace", "legado-hub",
-		"so-novel", "relay-book", "mihon-repo", "opds1", "opds2":
-		return "legado"
-	case "rss", "atom", "json-feed", "opml", "podcast":
+	case "legado-book", "so-novel", "relay-book", "opds1", "opds2", "legado-replace", "legado-hub":
+		return "novel"
+	case "mihon-repo":
+		return "manga"
+	case "legado-tts", "podcast":
+		return "audiobook"
+	case "lx-music", "music-playlist":
+		return "music"
+	case "rss", "atom", "json-feed", "opml", "legado-rss":
 		return "rss"
 	}
 	for _, m := range mediaTypes {
 		switch m {
 		case "video.live", "support.epg", "audio.radio":
 			return "iptv"
-		case "text.novel", "text.ebook", "image.comic", "speech.tts":
-			return "legado"
+		case "text.novel", "text.ebook":
+			return "novel"
+		case "image.comic":
+			return "manga"
+		case "speech.tts", "audio.audiobook":
+			return "audiobook"
+		case "audio.music":
+			return "music"
 		case "text.article", "audio.podcast":
 			return "rss"
 		case "video.movie", "video.series", "video.short":
@@ -80,7 +101,7 @@ func bucketByType(t string) AggregateBucket {
 	return aggregateBuckets[len(aggregateBuckets)-1]
 }
 
-func aggregateBindingID(setID string) string { return "binding_" + setID }
+func aggregateBindingID(setID string) string  { return "binding_" + setID }
 func aggregateTokenOwner(setID string) string { return "aggregate_token_" + setID }
 
 // AggregateInfo is the operator-facing summary for GET /api/v1/aggregates.
@@ -171,30 +192,24 @@ func (s *Service) syncAggregateAfterVisibility(ctx context.Context, src model.So
 func (s *Service) upsertAggregateMember(ctx context.Context, src model.Source) error {
 	def := bucketByType(AggregateTypeFor(src.Protocol, src.MediaTypes))
 	return s.DB.Write(ctx, func(tx *store.Tx) error {
+		if e := stripAggregateMembershipTx(ctx, tx, src.ID); e != nil {
+			return e
+		}
 		set, e := s.ensureAggregateSetTx(ctx, tx, def)
 		if e != nil {
 			return e
 		}
-		found := false
-		for _, m := range set.Members {
-			if m.SourceID == src.ID {
-				found = true
-				break
-			}
+		set.Members = append(set.Members, model.Member{
+			SourceID: src.ID, Priority: 100, Weight: 1, Role: "primary",
+			MinScore: 0, TimeoutMS: 15000, MaxConcurrency: 2,
+		})
+		set.UpdatedAt = model.Now()
+		set.PublishSignature = ""
+		if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
+			return e
 		}
-		if !found {
-			set.Members = append(set.Members, model.Member{
-				SourceID: src.ID, Priority: 100, Weight: 1, Role: "primary",
-				MinScore: 0, TimeoutMS: 15000, MaxConcurrency: 2,
-			})
-			set.UpdatedAt = model.Now()
-			set.PublishSignature = ""
-			if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
-				return e
-			}
-			if e = audit(ctx, tx, "aggregate.member.add", src.ID); e != nil {
-				return e
-			}
+		if e = audit(ctx, tx, "aggregate.member.add", src.ID); e != nil {
+			return e
 		}
 		return s.ensureAggregateBindingTx(ctx, tx, def.Slug)
 	})
@@ -349,4 +364,71 @@ func stripAggregateMembershipTx(ctx context.Context, tx *store.Tx, sourceID stri
 		}
 	}
 	return nil
+}
+
+// ReconcileResult summarizes POST /api/v1/aggregates/reconcile.
+type ReconcileResult struct {
+	Buckets        []AggregateInfo `json:"buckets"`
+	EnabledSources int             `json:"enabledSources"`
+	Memberships    int             `json:"memberships"`
+}
+
+// ReconcileAggregates rebuilds aggregate memberships from all enabled, approved sources.
+// Use after bucket renames (e.g. aggregate-legado → novel/manga/audiobook/music).
+func (s *Service) ReconcileAggregates(ctx context.Context, publicBase string) (ReconcileResult, error) {
+	sources, e := store.List[model.Source](ctx, s.DB.Pool, "sources")
+	if e != nil {
+		return ReconcileResult{}, e
+	}
+	eligible := make([]model.Source, 0, len(sources))
+	for _, src := range sources {
+		if src.Enabled && src.ActiveRevision != "" {
+			eligible = append(eligible, src)
+		}
+	}
+	e = s.DB.Write(ctx, func(tx *store.Tx) error {
+		sets, e := store.List[model.SourceSet](ctx, tx, "source_sets")
+		if e != nil {
+			return e
+		}
+		for _, set := range sets {
+			if !IsAggregateSetID(set.ID) {
+				continue
+			}
+			if len(set.Members) == 0 {
+				continue
+			}
+			set.Members = nil
+			set.UpdatedAt = model.Now()
+			set.PublishSignature = ""
+			if e = store.Put(ctx, tx, "source_sets", set.ID, set); e != nil {
+				return e
+			}
+		}
+		return audit(ctx, tx, "aggregate.reconcile.clear", "")
+	})
+	if e != nil {
+		return ReconcileResult{}, e
+	}
+	for _, src := range eligible {
+		if e := s.upsertAggregateMember(ctx, src); e != nil {
+			return ReconcileResult{}, e
+		}
+	}
+	touched := map[string]bool{}
+	for _, src := range eligible {
+		touched[AggregateTypeFor(src.Protocol, src.MediaTypes)] = true
+	}
+	for t := range touched {
+		_ = s.ensureAggregatePublished(ctx, t)
+	}
+	infos, e := s.ListAggregates(ctx, publicBase)
+	if e != nil {
+		return ReconcileResult{}, e
+	}
+	members := 0
+	for _, info := range infos {
+		members += info.MemberCount
+	}
+	return ReconcileResult{Buckets: infos, EnabledSources: len(eligible), Memberships: members}, nil
 }

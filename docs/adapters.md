@@ -16,6 +16,8 @@
 | OPDS 1 / 2 | Atom / JSON 目录，条目与链接 | 首个条目地址可达 | 统一 Atom OPDS 目录 + Bundle |
 | Shadow Bundle v1 | schema、白名单 driver、执行方式、端点 | 结构 | 合并 Provider 描述，保留客户端本地鉴权 |
 | Mihon repository | repo.json 的 meta/index_v2、旧 JSON 扩展数组 | 结构；绑定 Suwayomi 后检查服务 API | mihon/repos.json 为仓地址目录；保留上游签名，不伪造合并安装仓 |
+| LX Music (`lx-music`) | shadow.lx-music/v1：name、apiUrl、scriptPath；拒绝正文内密钥 | 结构 | shadow.json provider；脚本位于 data/runtime/lx-music/（不入库） |
+| Music playlist | 音频-only M3U/TXT（自动识别或 hint） | 结构 | Bundle provider / 可选合并播放列表 |
 | JSON 目录 / yuanc | name/url/link、m3u-link/txt-link、嵌套列表与项目根 data/ 地址 | 结构 | 候选箱，不作为内容发布格式 |
 
 单个输入最多 8 MiB，规范化条目最多 20,000 条，XML 嵌套最多 64 层。XML DTD/外部实体/非 XML 处理指令被拒绝。TVBox type 0/1 HTTP CMS 可进入安全配置；JAR、csp、type 3/4 和解析脚本不会发布到安全 TVBox 配置中。JSONC 转换不修改字符串内的 URL 和注释样式文字。

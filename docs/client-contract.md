@@ -109,9 +109,17 @@
 |---|---|---|
 | `tvbox` | `aggregate-tvbox` | TVBox JSON/多仓 |
 | `iptv` | `aggregate-iptv` | M3U / XMLTV / 直播相关 |
-| `legado` | `aggregate-legado` | 阅读书源、OPDS、漫画仓等 |
-| `rss` | `aggregate-rss` | RSS / Atom / Podcast / OPML |
+| `novel` | `aggregate-novel` | 小说：legado-book、so-novel、relay-book、OPDS、legado-replace |
+| `manga` | `aggregate-manga` | 漫画：mihon-repo（image.comic） |
+| `audiobook` | `aggregate-audiobook` | 有声书：legado-tts、podcast（shadow.podcast） |
+| `music` | `aggregate-music` | 音乐：lx-music、music-playlist；或 RSS/Atom/JSON Feed/OPML 且 mediaTypes 含 `audio.music` |
+| `rss` | `aggregate-rss` | 普通 RSS / Atom / JSON Feed / OPML / legado-rss |
 | `other` | `aggregate-other` | 其余协议（如 Emby 直连） |
 
-客户端只需订阅对应聚合组的稳定地址（`GET /p/{token}/shadow.json` 等），无需手工维护 SourceSet。禁用或删除源时会从聚合组移除并尝试重新发布。运营侧用 `GET /api/v1/aggregates` 查看类型 → 组 ID → 订阅 URL（含系统绑定令牌）。系统绑定令牌密文存在 `secrets`（数据目录，不入库）。
+旧的 `aggregate-legado` 已拆分；升级后调用 `POST /api/v1/aggregates/reconcile`（或重新 enable 源）会按新规则重建成员。客户端只需订阅对应聚合组的稳定地址（`GET /p/{token}/shadow.json` 等），无需手工维护 SourceSet。禁用或删除源时会从聚合组移除并尝试重新发布。运营侧用 `GET /api/v1/aggregates` 查看类型 → 组 ID → 订阅 URL（含系统绑定令牌）。系统绑定令牌密文存在 `secrets`（数据目录，不入库）。
+
+### 音乐协议说明
+
+- **`lx-music`**：洛雪音乐用户音源描述符（`schema: shadow.lx-music/v1`）。文档仅含 `name` / `apiUrl` / `scriptPath`（相对 `data/`，须在 `runtime/lx-music/*.js`）；`apiKey` / `signSalt` / `fingerprint` 只能写入凭证保险库（导入时的 headers），不得出现在源正文或 git。
+- **`music-playlist`**：仅含音频扩展名（mp3/m4a/aac/flac/ogg/opus/wav/wma）的 M3U/TXT；未指定 hint 时自动识别。显式 `protocol: m3u` 仍按 IPTV 处理。
 

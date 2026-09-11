@@ -18,7 +18,7 @@ import (
 	"github.com/Cylunex/shadow-relay/internal/store"
 )
 
-var Formats = []string{"shadow.json", "podcasts/feed.xml", "tvbox/store.json", "iptv/live.m3u", "iptv/epg.xml", "legado/books.json", "legado/replace.json", "hub/plugins.json", "mihon/repos.json", "iptv/live.txt", "legado/rss.json", "legado/tts.json", "feeds.opml", "opds/"}
+var Formats = []string{"shadow.json", "podcasts/feed.xml", "tvbox/store.json", "iptv/live.m3u", "iptv/epg.xml", "legado/books.json", "legado/replace.json", "hub/plugins.json", "mihon/repos.json", "iptv/live.txt", "legado/rss.json", "legado/tts.json", "feeds.opml", "opds/", "lx-music/sources.json", "music/playlist.m3u"}
 
 const BasePlaceholder = "__RELAY_PUBLICATION_BASE__"
 

@@ -239,6 +239,14 @@ func (s *Server) routes(mux *http.ServeMux) {
 		reply(w, 200, items)
 		return nil
 	}))
+	mux.HandleFunc("POST /api/v1/aggregates/reconcile", handle(func(w http.ResponseWriter, r *http.Request) error {
+		result, e := svc.ReconcileAggregates(r.Context(), s.PublicURL)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, result)
+		return nil
+	}))
 	listRoute[model.Runtime](s, mux, "runtimes", "runtimes", nil)
 	listRoute[model.Binding](s, mux, "bindings", "bindings", func(b model.Binding) model.Binding { b.Hash = ""; return b })
 	listRoute[model.Audit](s, mux, "audits", "audits", nil)
