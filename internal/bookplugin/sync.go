@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Cylunex/shadow-relay/internal/security"
 )
@@ -40,11 +41,17 @@ func Install(root string, report Report) (SyncResult, error) {
 	if err != nil || real != root {
 		return result, errors.New("plugin root may not contain symlinks")
 	}
-	// A directory lock is portable and fails closed on overlapping syncs. A stale
-	// lock after a crash is left for explicit operator removal, never stolen.
+	// A directory lock is portable and fails closed on overlapping syncs.
+	// Stale locks older than 15m (crash leftovers) are recovered automatically.
 	lock := filepath.Join(root, ".relay-sync-lock")
 	if err = os.Mkdir(lock, 0700); err != nil {
-		return result, errors.New("another sync is active or its lock needs recovery")
+		if info, stErr := os.Stat(lock); stErr == nil && time.Since(info.ModTime()) > 15*time.Minute {
+			_ = os.RemoveAll(lock)
+			err = os.Mkdir(lock, 0700)
+		}
+		if err != nil {
+			return result, errors.New("another sync is active or its lock needs recovery")
+		}
 	}
 	defer os.Remove(lock)
 	wanted := map[string]bool{}

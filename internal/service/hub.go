@@ -178,7 +178,12 @@ func (s *Service) ProbeHub(ctx context.Context, src model.Source, n model.Normal
 		}
 	}
 	if !regexp.MustCompile(`^[a-zA-Z0-9_-]{1,120}$`).MatchString(candidateID) {
-		return finish(errors.New("live search found no verifiable candidate"))
+		// Empty search is a content miss, not a broken pack/source.
+		p.Success = true
+		p.Code = "hub_search_empty"
+		p.Checks = append(p.Checks, "hub_search_empty", "plugin:"+pluginID)
+		p.LatencyMS = time.Since(start).Milliseconds()
+		return p, nil
 	}
 	p.Checks = append(p.Checks, "hub_search_result", "plugin:"+pluginID)
 	verified, e := s.hubJSON(ctx, rt, "search-jobs/"+url.PathEscape(jobID)+"/candidates/"+url.PathEscape(candidateID)+"/verify", map[string]any{"chapterIndex": 0, "includeReviews": false})

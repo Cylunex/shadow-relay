@@ -16,7 +16,7 @@
 | OPDS 1 / 2 | Atom / JSON 目录，条目与链接 | 首个条目地址可达 | 统一 Atom OPDS 目录 + Bundle |
 | Shadow Bundle v1 | schema、白名单 driver、执行方式、端点 | 结构 | 合并 Provider 描述，保留客户端本地鉴权 |
 | Mihon repository | repo.json 的 meta/index_v2、旧 JSON 扩展数组 | 结构；绑定 Suwayomi 后检查服务 API | mihon/repos.json 为仓地址目录；保留上游签名，不伪造合并安装仓 |
-| LX Music (`lx-music`) | shadow.lx-music/v1：name、apiUrl、scriptPath；拒绝正文内密钥 | 结构 | shadow.json provider；脚本位于 data/runtime/lx-music/（不入库） |
+| LX Music (`lx-music`) | shadow.lx-music/v1：name、apiUrl、scriptPath；拒绝正文内密钥 | 结构 | `lx-music/sources.json` 描述符导出（非 Bundle 播放 driver）；脚本位于 data/runtime/lx-music/（不入库）；`POST .../music/resolve` 返回客户端解析提示 |
 | Music playlist | 音频-only M3U/TXT（自动识别或 hint） | 结构 | Bundle provider / 可选合并播放列表 |
 | JSON 目录 / yuanc | name/url/link、m3u-link/txt-link、嵌套列表与项目根 data/ 地址 | 结构 | 候选箱，不作为内容发布格式 |
 

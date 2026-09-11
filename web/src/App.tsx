@@ -40,6 +40,7 @@ import { SetMemberPicker } from "./SetMemberPicker";
 import {
   api,
   defaultMember,
+  hasCredential,
   label,
   setCredential,
   short,
@@ -53,6 +54,7 @@ import {
   type ImportSeed,
 } from "./Workshop";
 import type {
+  AggregateInfo,
   Catalog,
   Data,
   Meta,
@@ -105,6 +107,7 @@ const emptyData: Data = {
   runtimes: [],
   jobs: [],
   audits: [],
+  aggregates: [],
   meta: { adapters: [], connectors: {}, formats: [] },
 };
 type Dialog =
@@ -158,6 +161,7 @@ export default function App() {
       runtimes,
       jobs,
       audits,
+      aggregates,
       meta,
     ] = await Promise.all([
       api<Data["sources"]>("sources"),
@@ -169,6 +173,7 @@ export default function App() {
       api<Data["runtimes"]>("runtimes"),
       api<Data["jobs"]>("jobs"),
       api<Data["audits"]>("audits"),
+      api<AggregateInfo[]>("aggregates"),
       api<Meta>("adapters"),
     ]);
     setData({
@@ -181,6 +186,7 @@ export default function App() {
       runtimes,
       jobs,
       audits,
+      aggregates,
       meta,
     });
     setError("");
@@ -623,8 +629,57 @@ function Overview({
   const recent = [...data.audits]
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .slice(0, 5);
+  const liveAggregates = data.aggregates.filter(
+    (a) => a.subscribeUrls?.length && a.memberCount > 0,
+  );
   return (
     <>
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <div className="section-title">
+          <div>
+            <h2>我的订阅入口</h2>
+            <p>按媒体类型一键连接客户端；令牌长期有效，可在设置中重置</p>
+          </div>
+          <button className="text-button" onClick={() => navigate("publish")}>
+            管理发布
+            <ArrowUpRight size={14} />
+          </button>
+        </div>
+        {liveAggregates.length === 0 ? (
+          <Empty
+            title="还没有可用的聚合订阅"
+            description="添加并启用源后，会自动出现在这里。"
+            action={
+              <button onClick={() => open({ type: "import" })}>添加源</button>
+            }
+          />
+        ) : (
+          <div className="list">
+            {liveAggregates.map((a) => (
+              <div className="list-row" key={a.slug}>
+                <div>
+                  <strong>{a.name}</strong>
+                  <small>
+                    {a.memberCount} 个源 · {a.type}
+                  </small>
+                </div>
+                <button
+                  className="secondary"
+                  onClick={() =>
+                    open({
+                      type: "token",
+                      baseUrl: a.subscribeUrls[0].replace(/\/shadow\.json$/, ""),
+                      formats: data.meta.formats,
+                    })
+                  }
+                >
+                  复制订阅
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
       <div className="metrics">
         {[
           {

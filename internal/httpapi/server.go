@@ -226,7 +226,22 @@ func (s *Server) routes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/adapters", func(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, map[string]any{"adapters": adapter.Describe(), "connectors": service.Connectors, "formats": service.Formats})
 	})
-	listRoute[model.Source](s, mux, "sources", "sources", nil)
+	mux.HandleFunc("GET /api/v1/sources", handle(func(w http.ResponseWriter, r *http.Request) error {
+		vs, e := store.List[model.Source](r.Context(), svc.DB.Pool, "sources")
+		if e != nil {
+			return e
+		}
+		includeDeleted := r.URL.Query().Get("includeDeleted") == "1"
+		out := []model.Source{}
+		for _, src := range vs {
+			if !includeDeleted && svc.IsSoftDeleted(r.Context(), src.ID) {
+				continue
+			}
+			out = append(out, src)
+		}
+		reply(w, 200, out)
+		return nil
+	}))
 	listRoute[model.Feedback](s, mux, "feedback", "feedback", nil)
 	listRoute[model.Catalog](s, mux, "catalogs", "catalogs", nil)
 	listRoute[model.Candidate](s, mux, "candidates", "candidates", nil)
@@ -322,10 +337,22 @@ func (s *Server) routes(mux *http.ServeMux) {
 		return nil
 	}))
 	mux.HandleFunc("DELETE /api/v1/sources/{id}", handle(func(w http.ResponseWriter, r *http.Request) error {
-		if e := svc.DeleteSource(r.Context(), r.PathValue("id")); e != nil {
+		if r.URL.Query().Get("hard") == "1" {
+			if e := svc.DeleteSource(r.Context(), r.PathValue("id")); e != nil {
+				return e
+			}
+		} else if e := svc.SoftDeleteSource(r.Context(), r.PathValue("id")); e != nil {
 			return e
 		}
 		reply(w, 200, map[string]bool{"ok": true})
+		return nil
+	}))
+	mux.HandleFunc("POST /api/v1/sources/{id}/undo-delete", handle(func(w http.ResponseWriter, r *http.Request) error {
+		src, e := svc.UndoDeleteSource(r.Context(), r.PathValue("id"))
+		if e != nil {
+			return e
+		}
+		reply(w, 200, src)
 		return nil
 	}))
 	mux.HandleFunc("GET /api/v1/sources/{id}/revisions", handle(func(w http.ResponseWriter, r *http.Request) error {
@@ -572,6 +599,64 @@ func (s *Server) routes(mux *http.ServeMux) {
 		reply(w, 200, map[string]any{"configured": len(keys) > 0, "headerNames": keys})
 		return nil
 	}))
+	mux.HandleFunc("GET /api/v1/preferences", handle(func(w http.ResponseWriter, r *http.Request) error {
+		items, e := svc.ListPreferences(r.Context(), r.URL.Query().Get("setId"))
+		if e != nil {
+			return e
+		}
+		reply(w, 200, items)
+		return nil
+	}))
+	mux.HandleFunc("PUT /api/v1/preferences", handle(func(w http.ResponseWriter, r *http.Request) error {
+		var in model.PreferenceOverlay
+		if e := decode(w, r, &in); e != nil {
+			return e
+		}
+		out, e := svc.SavePreference(r.Context(), in)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, out)
+		return nil
+	}))
+	mux.HandleFunc("DELETE /api/v1/preferences/{id}", handle(func(w http.ResponseWriter, r *http.Request) error {
+		if e := svc.DeletePreference(r.Context(), r.PathValue("id")); e != nil {
+			return e
+		}
+		reply(w, 200, map[string]bool{"ok": true})
+		return nil
+	}))
+	mux.HandleFunc("GET /api/v1/personal-credential", handle(func(w http.ResponseWriter, r *http.Request) error {
+		out, e := svc.EnsurePersonalCredential(r.Context(), s.PublicURL)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, out)
+		return nil
+	}))
+	mux.HandleFunc("POST /api/v1/personal-credential/reset", handle(func(w http.ResponseWriter, r *http.Request) error {
+		out, e := svc.ResetPersonalCredential(r.Context(), s.PublicURL)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, out)
+		return nil
+	}))
+	mux.HandleFunc("POST /api/v1/sources/{id}/music/resolve", handle(func(w http.ResponseWriter, r *http.Request) error {
+		var in struct {
+			Query string `json:"query"`
+			SongID string `json:"songId"`
+		}
+		if e := decode(w, r, &in); e != nil {
+			return e
+		}
+		out, e := svc.ResolveMusic(r.Context(), r.PathValue("id"), in.Query, in.SongID)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, out)
+		return nil
+	}))
 	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) { reply(w, 404, map[string]string{"error": "not found"}) })
 }
 func (s *Server) publication(w http.ResponseWriter, r *http.Request) {
@@ -599,6 +684,25 @@ func (s *Server) publication(w http.ResponseWriter, r *http.Request) {
 	}
 	base := strings.TrimRight(s.PublicURL, "/") + prefix
 	body := strings.ReplaceAll(a.Body, service.BasePlaceholder, base)
+	if path == "shadow.json" {
+		drivers := r.URL.Query().Get("drivers")
+		if drivers == "" {
+			drivers = r.Header.Get("X-Shadow-Drivers")
+		}
+		if drivers != "" {
+			var bundle map[string]any
+			if json.Unmarshal([]byte(body), &bundle) == nil {
+				allowed := []string{}
+				for _, d := range strings.Split(drivers, ",") {
+					d = strings.TrimSpace(d)
+					if d != "" {
+						allowed = append(allowed, d)
+					}
+				}
+				body = string(mustJSON(service.FilterProvidersByDrivers(bundle, allowed)))
+			}
+		}
+	}
 	etag := `"` + security.Hash([]byte(body)) + `"`
 	w.Header().Set("ETag", etag)
 	w.Header().Set("Cache-Control", "private, no-cache, max-age=0")
@@ -609,6 +713,8 @@ func (s *Server) publication(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = io.WriteString(w, body)
 }
+func mustJSON(v any) []byte { b, _ := json.Marshal(v); return b }
+
 func (s *Server) static(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" && r.Method != "HEAD" {
 		w.WriteHeader(405)

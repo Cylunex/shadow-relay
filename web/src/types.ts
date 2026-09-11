@@ -197,6 +197,17 @@ export type Meta = {
   connectors: Record<string, Connector>;
   formats: string[];
 };
+export type AggregateInfo = {
+  type: string;
+  slug: string;
+  setId: string;
+  name: string;
+  memberCount: number;
+  publicationId?: string;
+  bindingId?: string;
+  token?: string;
+  subscribeUrls: string[];
+};
 export type Data = {
   sources: Source[];
   catalogs: Catalog[];
@@ -207,5 +218,7 @@ export type Data = {
   runtimes: Runtime[];
   jobs: Job[];
   audits: Audit[];
+  aggregates: AggregateInfo[];
   meta: Meta;
 };
+

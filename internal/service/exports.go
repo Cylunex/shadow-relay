@@ -252,3 +252,48 @@ func publicationInputs(items []selected) []any {
 	}
 	return out
 }
+
+// ApplyPreferences overlays user rename/group/pin/hide/pause on compiled items.
+// Overlays survive upstream pack updates because they key by ItemIdentity, not revision.
+func ApplyPreferences(items []model.Item, prefs []model.PreferenceOverlay, protocol string) []model.Item {
+	byKey := map[string]model.PreferenceOverlay{}
+	for _, p := range prefs {
+		byKey[p.ItemKey] = p
+	}
+	out := []model.Item{}
+	pinned := []model.Item{}
+	for _, item := range items {
+		key := ItemIdentity(protocol, item.ID, item.URL, item.Language, "")
+		pref, ok := byKey[key]
+		if !ok {
+			// Also try match-only overlays used by ChannelRule-style keys.
+			pref, ok = byKey[item.ID]
+			if !ok {
+				pref, ok = byKey[item.URL]
+			}
+		}
+		if ok {
+			if pref.Paused || pref.Hidden {
+				continue
+			}
+			if pref.Name != "" {
+				item.Name = pref.Name
+			}
+			if pref.Group != "" {
+				item.Group = pref.Group
+			}
+			if pref.Logo != "" {
+				item.Logo = pref.Logo
+			}
+			if pref.TVGID != "" {
+				item.ID = pref.TVGID
+			}
+			if pref.Pinned {
+				pinned = append(pinned, item)
+				continue
+			}
+		}
+		out = append(out, item)
+	}
+	return append(pinned, out...)
+}

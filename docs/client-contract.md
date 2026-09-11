@@ -123,3 +123,13 @@
 - **`lx-music`**：洛雪音乐用户音源描述符（`schema: shadow.lx-music/v1`）。导出为 `lx-music/sources.json`，不是 Shadow Media Bundle 完整播放 driver；搜索/解析/播放 URL 刷新由兼容洛雪客户端（或后续 OpenSubsonic 路径）完成。文档仅含 `name` / `apiUrl` / `scriptPath`（相对 `data/`，须在 `runtime/lx-music/*.js`）；`apiKey` / `signSalt` / `fingerprint` 只能写入凭证保险库（导入时的 headers），不得出现在源正文或 git。
 - **`music-playlist`**：仅含音频扩展名（mp3/m4a/aac/flac/ogg/opus/wav/wma）的 M3U/TXT；未指定 hint 时自动识别。显式 `protocol: m3u` 仍按 IPTV 处理。
 
+
+
+## 个人订阅与能力过滤
+
+- `GET /api/v1/personal-credential`：一次性列出各媒体聚合的长期订阅入口（TVBox/IPTV/小说/漫画/有声/音乐/RSS…）。
+- `POST /api/v1/personal-credential/reset`：一键轮换全部聚合令牌。
+- 客户端拉取 `shadow.json` 时可带 `?drivers=m3u,emby` 或头 `X-Shadow-Drivers`：不支持的 driver 只让对应 provider 不可用，整份订阅仍成功。
+- 用户偏好覆盖（`/api/v1/preferences`）按 `protocol|entry|lang|account` 身份键保存 rename/group/pin/hide/pause，上游包更新后仍保留。
+- 普通失败进入 `avoid` 并自动复检，不再永久隔离；空搜索结果不算源损坏。Hub 插件同步锁超过 15 分钟会自动恢复。
+- 删除源默认软删除（可 `POST /api/v1/sources/{id}/undo-delete`）；`?hard=1` 才永久删除。配置备份继续走既有 data export/import。

@@ -13,7 +13,7 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
-var tables = map[string]bool{"feedback": true, "catalogs": true, "runtimes": true, "sources": true, "endpoints": true, "secrets": true, "revisions": true, "candidates": true, "probes": true, "source_sets": true, "publications": true, "bindings": true, "audits": true}
+var tables = map[string]bool{"feedback": true, "catalogs": true, "runtimes": true, "sources": true, "endpoints": true, "secrets": true, "revisions": true, "candidates": true, "probes": true, "source_sets": true, "publications": true, "bindings": true, "audits": true, "preferences": true, "deleted_sources": true}
 
 type DB struct{ Pool *pgxpool.Pool }
 

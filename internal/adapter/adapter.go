@@ -836,7 +836,7 @@ func Difference(old, next model.Normalized) model.Diff {
 		}
 	}
 	sort.Strings(d.DomainChanges)
-	d.RequiresReview = (len(a) > 0 && float64(d.Removed)/float64(len(a)) >= 0.3) || len(d.DomainChanges) > 0
+	d.RequiresReview = (len(a) > 0 && float64(d.Removed)/float64(len(a)) >= 0.2) || len(d.DomainChanges) > 0
 	return d
 }
 
