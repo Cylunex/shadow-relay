@@ -100,3 +100,18 @@
 ```
 
 仅允许 `timeout`、`unavailable`、`parse_error`、`unauthorized`、`unsupported`。令牌须具有 Bundle 权限，源必须存在于该发布物；未知字段直接拒绝。禁止传入完整 URL、内容标题、请求头和 Token。按绑定/源/错误/分钟去重，读取入口为管理员 `GET /api/v1/feedback`。反馈不直接改变健康等级。
+
+## 按类型自动聚合
+
+导入并 **批准 + 启用** 后，源会按协议自动加入系统编排组（不替代手工 SourceSet）：
+
+| 类型 | SourceSet ID | 说明 |
+|---|---|---|
+| `tvbox` | `aggregate-tvbox` | TVBox JSON/多仓 |
+| `iptv` | `aggregate-iptv` | M3U / XMLTV / 直播相关 |
+| `legado` | `aggregate-legado` | 阅读书源、OPDS、漫画仓等 |
+| `rss` | `aggregate-rss` | RSS / Atom / Podcast / OPML |
+| `other` | `aggregate-other` | 其余协议（如 Emby 直连） |
+
+客户端只需订阅对应聚合组的稳定地址（`GET /p/{token}/shadow.json` 等），无需手工维护 SourceSet。禁用或删除源时会从聚合组移除并尝试重新发布。运营侧用 `GET /api/v1/aggregates` 查看类型 → 组 ID → 订阅 URL（含系统绑定令牌）。系统绑定令牌密文存在 `secrets`（数据目录，不入库）。
+

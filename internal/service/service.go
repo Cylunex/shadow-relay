@@ -315,7 +315,8 @@ func (s *Service) EditSource(ctx context.Context, id string, in Input) (model.So
 	return out, e
 }
 func (s *Service) SourceAction(ctx context.Context, id, action, revision string) error {
-	return s.DB.Write(ctx, func(tx *store.Tx) error {
+	var after model.Source
+	e := s.DB.Write(ctx, func(tx *store.Tx) error {
 		v, e := store.Get[model.Source](ctx, tx, "sources", id)
 		if e != nil {
 			return e
@@ -412,11 +413,29 @@ func (s *Service) SourceAction(ctx context.Context, id, action, revision string)
 		if e = store.Put(ctx, tx, "sources", id, v); e != nil {
 			return e
 		}
+		after = v
 		return audit(ctx, tx, "source."+action, id)
 	})
+	if e != nil {
+		return e
+	}
+	if action == "enable" || action == "disable" {
+		return s.syncAggregateAfterVisibility(ctx, after, action)
+	}
+	return nil
 }
 func (s *Service) DeleteSource(ctx context.Context, id string) error {
-	return s.DB.Write(ctx, func(tx *store.Tx) error {
+	var proto string
+	var media []string
+	e := s.DB.Write(ctx, func(tx *store.Tx) error {
+		src, e := store.Get[model.Source](ctx, tx, "sources", id)
+		if e != nil {
+			return e
+		}
+		proto, media = src.Protocol, src.MediaTypes
+		if e = stripAggregateMembershipTx(ctx, tx, id); e != nil {
+			return e
+		}
 		sets, e := store.List[model.SourceSet](ctx, tx, "source_sets")
 		if e != nil {
 			return e
@@ -436,6 +455,11 @@ func (s *Service) DeleteSource(ctx context.Context, id string) error {
 		}
 		return audit(ctx, tx, "source.delete", id)
 	})
+	if e != nil {
+		return e
+	}
+	_ = s.ensureAggregatePublished(ctx, AggregateTypeFor(proto, media))
+	return nil
 }
 func (s *Service) SyncSource(ctx context.Context, id string) error {
 	src, e := store.Get[model.Source](ctx, s.DB.Pool, "sources", id)

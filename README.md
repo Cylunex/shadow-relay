@@ -7,6 +7,7 @@ Relay 管理源和能力；Emby、LegadoHub、Suwayomi 等领域运行时执行�
 ## 主要功能
 
 - 中文响应式控制台：总览、源库、候选箱、编排组、发布与绑定、运行时、任务审计。
+- 启用后按内容类型自动加入 `aggregate-*` 编排组；客户端订阅类型聚合即可（见客户端契约）。
 - URL、文件与正文导入，自动识别 TVBox JSON/JSONC、多仓、M3U/TXT、XMLTV、Legado、Feed、OPML、OPDS 和 Bundle。
 - 候选与正式源隔离，版本审核、差异、固定与回滚；危险更新保留最后批准版本。
 - PostgreSQL 持久队列、定时同步、条件请求、抽样体检、失败退避与隔离。

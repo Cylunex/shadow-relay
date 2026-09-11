@@ -231,6 +231,14 @@ func (s *Server) routes(mux *http.ServeMux) {
 	listRoute[model.Catalog](s, mux, "catalogs", "catalogs", nil)
 	listRoute[model.Candidate](s, mux, "candidates", "candidates", nil)
 	listRoute[model.SourceSet](s, mux, "source-sets", "source_sets", nil)
+	mux.HandleFunc("GET /api/v1/aggregates", handle(func(w http.ResponseWriter, r *http.Request) error {
+		items, e := svc.ListAggregates(r.Context(), s.PublicURL)
+		if e != nil {
+			return e
+		}
+		reply(w, 200, items)
+		return nil
+	}))
 	listRoute[model.Runtime](s, mux, "runtimes", "runtimes", nil)
 	listRoute[model.Binding](s, mux, "bindings", "bindings", func(b model.Binding) model.Binding { b.Hash = ""; return b })
 	listRoute[model.Audit](s, mux, "audits", "audits", nil)
