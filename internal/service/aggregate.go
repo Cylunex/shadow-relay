@@ -66,6 +66,8 @@ func AggregateTypeFor(protocol string, mediaTypes []string) string {
 		return "audiobook"
 	case "lx-music", "music-playlist":
 		return "music"
+	case "direct-link":
+		return "other"
 	case "rss", "atom", "json-feed", "opml", "legado-rss":
 		return "rss"
 	}

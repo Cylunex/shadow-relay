@@ -174,6 +174,34 @@ func walk(v any) error {
 	}
 	return nil
 }
+
+// SafePlayURL validates an absolute HTTP(S) play/redirect Location.
+// Unlike SafeURL, signed query parameters (signature, token, expires, …) are allowed —
+// ephemeral CDN/cloud-drive links are the point of resolve-then-redirect.
+// Userinfo, fragments and control characters remain forbidden.
+func SafePlayURL(raw string) error {
+	u, e := url.Parse(raw)
+	if e != nil || u.Hostname() == "" || (u.Scheme != "https" && u.Scheme != "http") {
+		return errors.New("only absolute HTTP(S) URLs are allowed")
+	}
+	if u.User != nil || u.Fragment != "" || strings.ContainsAny(raw, "\r\n\x00") {
+		return errors.New("URL userinfo, fragments and control characters are not allowed")
+	}
+	return nil
+}
+
+// RedactURL strips query/fragment for logs so signed credentials never appear in Location logs.
+func RedactURL(raw string) string {
+	u, e := url.Parse(raw)
+	if e != nil || u.Host == "" {
+		return "[invalid-url]"
+	}
+	u.RawQuery = ""
+	u.Fragment = ""
+	u.User = nil
+	return u.Scheme + "://" + u.Host + u.EscapedPath()
+}
+
 func ValidateHeaders(h map[string]string) error {
 	if len(h) > 16 {
 		return errors.New("too many headers")

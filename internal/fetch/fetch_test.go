@@ -2,6 +2,7 @@ package fetch
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -80,5 +81,32 @@ func TestRejectMixedDNSAndBodyLimits(t *testing.T) {
 	}
 	if _, e := f.Get(context.Background(), "http://public.example.com/", Policy{}, nil, 300, false); e == nil {
 		t.Fatal("mixed public/private DNS allowed")
+	}
+}
+
+func TestValidatePlayURLRejectsPrivateLocation(t *testing.T) {
+	f, _ := New("")
+	f.lookup = func(_ context.Context, _, host string) ([]netip.Addr, error) {
+		if host == "evil.internal" || host == "localhost" {
+			return []netip.Addr{netip.MustParseAddr("127.0.0.1")}, nil
+		}
+		if host == "cdn.example.com" {
+			return []netip.Addr{netip.MustParseAddr("8.8.8.8")}, nil
+		}
+		return nil, errors.New("nxdomain")
+	}
+	ctx := context.Background()
+	p := Policy{Network: "internet", Trust: "reviewed"}
+	if e := f.ValidatePlayURL(ctx, "https://cdn.example.com/v.mp4?signature=abc", p); e != nil {
+		t.Fatal(e)
+	}
+	if e := f.ValidatePlayURL(ctx, "http://127.0.0.1/secret", p); e == nil {
+		t.Fatal("literal loopback accepted")
+	}
+	if e := f.ValidatePlayURL(ctx, "https://evil.internal/x", p); e == nil {
+		t.Fatal("DNS private target accepted")
+	}
+	if e := f.ValidatePlayURL(ctx, "http://user:pass@cdn.example.com/x", p); e == nil {
+		t.Fatal("userinfo accepted")
 	}
 }

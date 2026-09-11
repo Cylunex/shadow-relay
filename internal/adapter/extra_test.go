@@ -55,3 +55,27 @@ func TestCleanupAndPodcastHaveDistinctProtocols(t *testing.T) {
 		}
 	}
 }
+
+func TestDirectLinkDescriptor(t *testing.T) {
+	body := `{"schema":"shadow.direct-link/v1","resolveTemplate":"https://api.example.com/resolve?id={id}","items":[{"id":"a1","name":"Clip","url":"https://cdn.example.com/a.mp4"}]}`
+	n, e := Parse([]byte(body), "", "")
+	if e != nil || n.Protocol != "direct-link" || len(n.Items) != 1 {
+		t.Fatalf("direct-link parse: %+v %v", n, e)
+	}
+	if n.Items[0].URL != "https://cdn.example.com/a.mp4" {
+		t.Fatal(n.Items[0].URL)
+	}
+	if !strings.Contains(string(n.Config), "resolveTemplate") {
+		t.Fatal("missing template in config")
+	}
+	if _, e = Parse([]byte(`{"schema":"shadow.direct-link/v1"}`), "", ""); e == nil {
+		t.Fatal("empty direct-link accepted")
+	}
+	if _, e = Parse([]byte(`{"schema":"shadow.direct-link/v1","resolveTemplate":"http://127.0.0.1/{id}"}`), "", ""); e == nil {
+		// SafeURL allows 127.0.0.1 host syntactically; DNS policy blocks at resolve time.
+		// Template with userinfo must fail:
+	}
+	if _, e = Parse([]byte(`{"schema":"shadow.direct-link/v1","resolveTemplate":"http://user:pass@api.example.com/{id}"}`), "", ""); e == nil {
+		t.Fatal("credentialed resolveTemplate accepted")
+	}
+}

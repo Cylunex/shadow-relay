@@ -32,6 +32,7 @@ var registry = []Description{
 	{"podcast", []string{"audio.podcast"}, []string{"browse", "stream"}, false},
 	{"lx-music", []string{"audio.music"}, []string{"browse", "search", "stream"}, false},
 	{"music-playlist", []string{"audio.music"}, []string{"browse", "stream"}, false},
+	{"direct-link", []string{"video.movie", "video.series", "audio.music"}, []string{"browse", "stream"}, false},
 	{"m3u", []string{"video.live"}, []string{"live", "stream"}, false},
 	{"xmltv", []string{"support.epg"}, []string{"epg"}, false},
 	{"tvbox", []string{"video.movie", "video.series"}, []string{"browse", "search", "stream"}, false},
@@ -237,6 +238,8 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			protocol = "podcast"
 		case o["schema"] == "shadow.lx-music/v1":
 			protocol = "lx-music"
+		case o["schema"] == "shadow.direct-link/v1":
+			protocol = "direct-link"
 		case o["search"] != nil && o["toc"] != nil:
 			protocol = "so-novel"
 		case o["pattern"] != nil && o["replacement"] != nil:
@@ -477,7 +480,7 @@ func parseJSON(b []byte, hint, base string) (model.Normalized, error) {
 			n.Items = append(n.Items, model.Item{ID: str(s["id"]), Name: str(s["name"]), URL: resolve(base, str(s["endpoint"])), Data: raw(s)})
 		}
 		n.Config = raw(o)
-	case "mihon-repo", "legado-replace", "so-novel", "relay-book", "podcast", "lx-music":
+	case "mihon-repo", "legado-replace", "so-novel", "relay-book", "podcast", "lx-music", "direct-link":
 		return extraJSON(n, v, base)
 	default:
 		return n, errors.New("JSON is not supported for this protocol")

@@ -133,3 +133,30 @@
 - 用户偏好覆盖（`/api/v1/preferences`）按 `protocol|entry|lang|account` 身份键保存 rename/group/pin/hide/pause，上游包更新后仍保留。
 - 普通失败进入 `avoid` 并自动复检，不再永久隔离；空搜索结果不算源损坏。Hub 插件同步锁超过 15 分钟会自动恢复。
 - 删除源默认软删除（可 `POST /api/v1/sources/{id}/undo-delete`）；`?hard=1` 才永久删除。配置备份继续走既有 data export/import。
+
+## 播放解析（302 / 直链描述符）
+
+Relay **不**反代媒体字节。Emby / Jellyfin 始终是 **direct-client**（客户端直连媒体服务）。
+
+当需要服务端解析临时签名链、网盘直链、已编译 M3U/音乐条目或 `direct-link` 模板时，客户端调用：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` / `POST` | `/api/v1/sources/{id}/play/resolve` | 默认返回 JSON `PlaybackResource` |
+| 同上 + `?format=redirect` | | 在 `allowDirect` 且无必需播放头时返回 `302 Location` |
+
+查询/JSON 字段：`itemId`、`query`、`url`（可选）。需管理员 Bearer（与现有控制面 API 相同）。
+
+JSON 描述符字段：`url`、`headers`、`expiresAt`、`refreshPath`、`allowDirect`、`mustUseRuntime`、`status`、`note`。
+
+### 何时用哪种路径
+
+| 模式 | 适用 |
+|---|---|
+| **direct-client** | Emby / Jellyfin 等：客户端持有凭据，直连上游；**不要**走本 resolve |
+| **302 / JSON resolve** | `music-playlist`、`m3u` 已编译条目、`direct-link`（含 `resolveTemplate`）、TVBox 的 live/store HTTP URL |
+| **runtime / 客户端解析** | `lx-music` 脚本、TVBox CMS `site`、完整 115/Alist 深链（未在本轮实现） |
+
+`format=redirect` 仅允许已通过 `SafePlayURL` + 出站 DNS/私网策略校验的绝对 `http(s)` Location；私网/回环目标会被拒绝。Vault 凭据只用于上游 resolve 请求头，**不会**写入 Location。若播放必须自定义头，返回 JSON（`allowDirect=false`），由客户端自行带头发流。
+
+兼容：`POST /api/v1/sources/{id}/music/resolve` 仍可用，内部委托同一套 play resolve。

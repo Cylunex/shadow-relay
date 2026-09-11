@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -26,6 +27,21 @@ type fakeFetch struct {
 	fn     func(string) (fetch.Result, error)
 }
 
+func (f *fakeFetch) ValidatePlayURL(_ context.Context, raw string, _ fetch.Policy) error {
+	if e := security.SafePlayURL(raw); e != nil {
+		return e
+	}
+	// Test harness treats loopback / link-local / RFC1918 literal hosts as blocked.
+	u, e := url.Parse(raw)
+	if e != nil {
+		return e
+	}
+	host := u.Hostname()
+	if host == "localhost" || host == "internal.example.com" || strings.HasPrefix(host, "127.") || strings.HasPrefix(host, "10.") || strings.HasPrefix(host, "192.168.") || strings.HasPrefix(host, "169.254.") {
+		return fetch.ErrBlocked
+	}
+	return nil
+}
 func (f *fakeFetch) Get(_ context.Context, u string, _ fetch.Policy, _ map[string]string, _ int64, _ bool) (fetch.Result, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

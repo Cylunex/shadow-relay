@@ -181,6 +181,51 @@ func extraJSON(n model.Normalized, v any, base string) (model.Normalized, error)
 		n.Items = []model.Item{{Name: name, URL: apiURL, Group: "lx-music", Data: raw(cfg)}}
 		n.Config = raw(cfg)
 		n.Warnings = append(n.Warnings, "LX Music user-source script runs in a compatible client; Relay stores the descriptor and vaults secrets only")
+	case "direct-link":
+		if str(o["schema"]) != "shadow.direct-link/v1" {
+			return n, errors.New("direct-link requires schema shadow.direct-link/v1")
+		}
+		template := str(o["resolveTemplate"])
+		if template == "" {
+			template = str(o["resolveUrl"])
+		}
+		if template != "" {
+			// Template must be absolute HTTP(S) without embedded credentials; placeholders are substituted at resolve time.
+			probe := strings.NewReplacer("{id}", "x", "{query}", "x", "{url}", "https://example.com/").Replace(template)
+			if e := security.SafeURL(probe); e != nil {
+				return n, fmt.Errorf("resolveTemplate: %w", e)
+			}
+		}
+		for _, value := range list(o["items"]) {
+			s := object(value)
+			name := str(s["name"])
+			u := resolve(base, str(s["url"]))
+			id := str(s["id"])
+			if name == "" {
+				return n, errors.New("direct-link items require name")
+			}
+			if u != "" {
+				if e := security.SafePlayURL(u); e != nil {
+					return n, e
+				}
+			}
+			if id == "" {
+				id = security.Hash([]byte(name + u))[:16]
+			}
+			n.Items = append(n.Items, model.Item{ID: id, Name: name, URL: u, Group: str(s["group"]), Data: raw(s)})
+		}
+		if len(n.Items) == 0 && template == "" {
+			return n, errors.New("direct-link requires items and/or resolveTemplate")
+		}
+		cfg := map[string]any{"schema": "shadow.direct-link/v1"}
+		if template != "" {
+			cfg["resolveTemplate"] = template
+		}
+		if note := str(o["note"]); note != "" {
+			cfg["note"] = note
+		}
+		n.Config = raw(cfg)
+		n.Warnings = append(n.Warnings, "direct-link resolves play URLs server-side then redirects; media bytes do not transit Relay")
 	default:
 		return n, fmt.Errorf("unsupported extra protocol %s", n.Protocol)
 	}

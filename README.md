@@ -14,6 +14,7 @@ Relay 管理源和能力；Emby、LegadoHub、Suwayomi 等领域运行时执行�
 - 按优先级、主备角色、媒体类型和健康分编排，多格式不可变发布与稳定订阅。
 - 独立客户端令牌、格式授权、二维码、过期、轮换和吊销。
 - 加密凭据与原始快照、审计、出站地址检查、按源选择 HTTP(S) 代理和脱敏客户端反馈。
+- 播放解析：`/api/v1/sources/{id}/play/resolve` 支持 JSON 描述符或 `?format=redirect` 的 302 直链交接（不反代媒体；Emby/Jellyfin 仍 direct-client）。
 - 连接 Emby、Jellyfin、Dispatcharr、LegadoHub、Suwayomi、Audiobookshelf、Miniflux，检测 API 与拉取状态。
 - 书源工坊：阅读静态规则 / so-novel 转标准 Hub 插件、兼容报告、站点脚手架、独立挂载同步与四阶段体检。
 - 直播频道覆盖编排、M3U/TXT 与 EPG 关联；播客清单制作、合并 RSS；漫画新旧仓索引、净化规则和一键导入。

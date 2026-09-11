@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/Cylunex/shadow-relay/internal/adapter"
+	"github.com/Cylunex/shadow-relay/internal/fetch"
 	"github.com/Cylunex/shadow-relay/internal/model"
 	"github.com/Cylunex/shadow-relay/internal/security"
 	"github.com/Cylunex/shadow-relay/internal/service"
@@ -644,7 +645,7 @@ func (s *Server) routes(mux *http.ServeMux) {
 	}))
 	mux.HandleFunc("POST /api/v1/sources/{id}/music/resolve", handle(func(w http.ResponseWriter, r *http.Request) error {
 		var in struct {
-			Query string `json:"query"`
+			Query  string `json:"query"`
 			SongID string `json:"songId"`
 		}
 		if e := decode(w, r, &in); e != nil {
@@ -657,7 +658,58 @@ func (s *Server) routes(mux *http.ServeMux) {
 		reply(w, 200, out)
 		return nil
 	}))
+	playResolve := handle(func(w http.ResponseWriter, r *http.Request) error {
+		in := service.PlayResolveInput{
+			ItemID: r.URL.Query().Get("itemId"),
+			Query:  r.URL.Query().Get("query"),
+			URL:    r.URL.Query().Get("url"),
+		}
+		if r.Method == http.MethodPost {
+			var body service.PlayResolveInput
+			if e := decode(w, r, &body); e != nil {
+				return e
+			}
+			if body.ItemID != "" {
+				in.ItemID = body.ItemID
+			}
+			if body.Query != "" {
+				in.Query = body.Query
+			}
+			if body.URL != "" {
+				in.URL = body.URL
+			}
+		}
+		out, e := svc.ResolvePlay(r.Context(), r.PathValue("id"), in)
+		if e != nil {
+			return e
+		}
+		if r.URL.Query().Get("format") == "redirect" {
+			if e := service.CanRedirect(out); e != nil {
+				return e
+			}
+			// Re-validate with network policy before emitting Location (defense in depth).
+			if e := svc.Fetch.ValidatePlayURL(r.Context(), out.URL, fetchPolicyForSource(r.Context(), svc, r.PathValue("id"))); e != nil {
+				return e
+			}
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			http.Redirect(w, r, out.URL, http.StatusFound)
+			return nil
+		}
+		reply(w, 200, out)
+		return nil
+	})
+	mux.HandleFunc("GET /api/v1/sources/{id}/play/resolve", playResolve)
+	mux.HandleFunc("POST /api/v1/sources/{id}/play/resolve", playResolve)
 	mux.HandleFunc("/api/v1/", func(w http.ResponseWriter, r *http.Request) { reply(w, 404, map[string]string{"error": "not found"}) })
+}
+
+func fetchPolicyForSource(ctx context.Context, svc *service.Service, sourceID string) fetch.Policy {
+	src, e := store.Get[model.Source](ctx, svc.DB.Pool, "sources", sourceID)
+	if e != nil {
+		return fetch.Policy{Network: "internet", Trust: "reviewed"}
+	}
+	return fetch.Policy{Network: src.Network, Trust: src.Trust, ProxyID: src.ProxyID}
 }
 func (s *Server) publication(w http.ResponseWriter, r *http.Request) {
 	token, path := r.PathValue("token"), r.PathValue("path")

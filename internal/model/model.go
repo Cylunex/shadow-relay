@@ -237,3 +237,20 @@ type Feedback struct {
 	Code          string `json:"code"`
 	CreatedAt     string `json:"createdAt"`
 }
+
+// PlaybackResource describes a resolved playable link without streaming media through Relay.
+// Clients either follow Location (302) when allowDirect, or apply headers themselves from JSON.
+type PlaybackResource struct {
+	SourceID       string            `json:"sourceId"`
+	Protocol       string            `json:"protocol"`
+	ItemID         string            `json:"itemId,omitempty"`
+	Title          string            `json:"title,omitempty"`
+	URL            string            `json:"url,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	ExpiresAt      string            `json:"expiresAt,omitempty"`
+	RefreshPath    string            `json:"refreshPath,omitempty"`
+	AllowDirect    bool              `json:"allowDirect"`
+	MustUseRuntime bool              `json:"mustUseRuntime"`
+	Status         string            `json:"status"`
+	Note           string            `json:"note,omitempty"`
+}

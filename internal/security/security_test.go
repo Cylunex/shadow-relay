@@ -81,3 +81,23 @@ func TestCredentialsRejectedFromURLsAndDocuments(t *testing.T) {
 		t.Fatal("token must be URL safe")
 	}
 }
+
+func TestSafePlayURLAllowsSignedQueryRejectsUserinfo(t *testing.T) {
+	if SafePlayURL("https://cdn.example.com/a.mp4?signature=abc&Expires=123") != nil {
+		t.Fatal("signed play URL should be allowed")
+	}
+	if SafePlayURL("https://cdn.example.com/a.mp4?token=secret") != nil {
+		t.Fatal("token query on play URL should be allowed for CDN handoff")
+	}
+	if SafeURL("https://cdn.example.com/a.mp4?signature=abc") == nil {
+		t.Fatal("SafeURL must still reject signature query on config URLs")
+	}
+	for _, u := range []string{"http://user:pass@cdn.example.com/a", "https://cdn.example.com/a#frag", "file:///etc/passwd", "javascript:alert(1)"} {
+		if SafePlayURL(u) == nil {
+			t.Errorf("accepted unsafe play URL %s", u)
+		}
+	}
+	if RedactURL("https://cdn.example.com/path/a.mp4?signature=secret&token=x") != "https://cdn.example.com/path/a.mp4" {
+		t.Fatalf("redact failed: %s", RedactURL("https://cdn.example.com/path/a.mp4?signature=secret&token=x"))
+	}
+}

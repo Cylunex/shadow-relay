@@ -24,6 +24,7 @@ type Service struct {
 
 type Fetcher interface {
 	Get(context.Context, string, fetch.Policy, map[string]string, int64, bool) (fetch.Result, error)
+	ValidatePlayURL(context.Context, string, fetch.Policy) error
 }
 
 var ErrConflict = errors.New("configuration changed; refresh and retry")
