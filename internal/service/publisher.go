@@ -396,12 +396,31 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 		case "legado-book", "legado-rss", "legado-tts", "legado-replace":
 			// Use filtered items, not the unfiltered original pack in Config.
 			entries := make([]any, 0, len(its))
+			skippedNonHTTP := 0
 			for _, item := range its {
 				var entry any
 				if e := json.Unmarshal(item.Data, &entry); e != nil {
 					return p, e
 				}
+				if src.Protocol == "legado-book" && !legadoBookSourceHTTP(entry) {
+					skippedNonHTTP++
+					continue
+				}
 				entries = append(entries, entry)
+			}
+			if skippedNonHTTP > 0 {
+				if p.FormatWarnings == nil {
+					p.FormatWarnings = map[string]string{}
+				}
+				prev := p.FormatWarnings["legado/books.json"]
+				msg := fmt.Sprintf("skipped %d entries with non-http(s) bookSourceUrl", skippedNonHTTP)
+				if prev != "" {
+					msg = prev + "; " + msg
+				}
+				p.FormatWarnings["legado/books.json"] = msg
+			}
+			if len(entries) == 0 {
+				break
 			}
 			if e := security.ValidateDocument(jsonBytes(entries)); e != nil {
 				return p, &PublicationError{Message: "书源规则未通过发布校验；当前发布保持不变。", SourceErrors: map[string]string{src.ID: e.Error()}, Exclusions: excluded}
@@ -834,4 +853,16 @@ func opdsBody(id, name, created string, items []model.Item) string {
 	}
 	b.WriteString("</feed>")
 	return b.String()
+}
+
+// legadoBookSourceHTTP reports whether a Legado book entry has an absolute http(s) bookSourceUrl.
+// Relative / opaque markers without an http(s) scheme are dropped from legado/books.json exports.
+func legadoBookSourceHTTP(entry any) bool {
+	m, ok := entry.(map[string]any)
+	if !ok {
+		return false
+	}
+	u, _ := m["bookSourceUrl"].(string)
+	u = strings.TrimSpace(strings.Split(strings.Split(u, ",")[0], "##")[0])
+	return strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")
 }

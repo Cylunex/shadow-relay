@@ -40,12 +40,14 @@ import { SetMemberPicker } from "./SetMemberPicker";
 import {
   api,
   defaultMember,
+  formatFromSubscribeUrl,
   hasCredential,
+  importDeepLink,
   label,
+  publicationBase,
   setCredential,
   short,
   time,
-  importDeepLink,
 } from "./api";
 import {
   BookWorkshop,
@@ -118,7 +120,7 @@ type Dialog =
   | { type: "runtime"; runtime?: Runtime }
   | { type: "catalog"; catalog?: Catalog }
   | { type: "binding" }
-  | { type: "token"; baseUrl: string; formats: string[] }
+  | { type: "token"; baseUrl: string; formats: string[]; preferredFormat?: string }
   | { type: "publication"; publication: Publication }
   | null;
 const descriptions: Record<Page, string> = {
@@ -511,6 +513,7 @@ export default function App() {
         <TokenDialog
           baseUrl={dialog.baseUrl}
           formats={dialog.formats}
+          preferredFormat={dialog.preferredFormat}
           close={() => setDialog(null)}
         />
       )}
@@ -661,6 +664,9 @@ function Overview({
                   <strong>{a.name}</strong>
                   <small>
                     {a.memberCount} 个源 · {a.type}
+                    {a.type === "novel"
+                      ? " · 阅读导入 legado/books.json（大包可能失败，Hub 用 hub/plugins.json）"
+                      : ""}
                   </small>
                 </div>
                 <button
@@ -668,12 +674,13 @@ function Overview({
                   onClick={() =>
                     open({
                       type: "token",
-                      baseUrl: a.subscribeUrls[0].replace(/\/shadow\.json$/, ""),
+                      baseUrl: publicationBase(a.subscribeUrls[0]),
                       formats: data.meta.formats,
+                      preferredFormat: formatFromSubscribeUrl(a.subscribeUrls[0]),
                     })
                   }
                 >
-                  复制订阅
+                  {a.type === "novel" ? "复制阅读订阅" : "复制订阅"}
                 </button>
               </div>
             ))}
@@ -3404,15 +3411,21 @@ function BindingDialog({
 function TokenDialog({
   baseUrl,
   formats,
+  preferredFormat,
   close,
 }: {
   baseUrl: string;
   formats: string[];
+  preferredFormat?: string;
   close: () => void;
 }) {
-  const [selected, setSelected] = useState(
-    formats.includes("shadow.json") ? "shadow.json" : formats[0],
-  );
+  const initial =
+    preferredFormat && formats.includes(preferredFormat)
+      ? preferredFormat
+      : formats.includes("shadow.json")
+        ? "shadow.json"
+        : formats[0];
+  const [selected, setSelected] = useState(initial);
   const [qr, setQR] = useState("");
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");

@@ -108,15 +108,123 @@ func aggregateTokenOwner(setID string) string { return "aggregate_token_" + setI
 
 // AggregateInfo is the operator-facing summary for GET /api/v1/aggregates.
 type AggregateInfo struct {
-	Type          string   `json:"type"`
-	Slug          string   `json:"slug"`
-	SetID         string   `json:"setId"`
-	Name          string   `json:"name"`
-	MemberCount   int      `json:"memberCount"`
-	PublicationID string   `json:"publicationId,omitempty"`
-	BindingID     string   `json:"bindingId,omitempty"`
-	Token         string   `json:"token,omitempty"`
-	SubscribeURLs []string `json:"subscribeUrls"`
+	Type              string            `json:"type"`
+	Slug              string            `json:"slug"`
+	SetID             string            `json:"setId"`
+	Name              string            `json:"name"`
+	MemberCount       int               `json:"memberCount"`
+	PublicationID     string            `json:"publicationId,omitempty"`
+	BindingID         string            `json:"bindingId,omitempty"`
+	Token             string            `json:"token,omitempty"`
+	SubscribeURLs     []string          `json:"subscribeUrls"`
+	SubscribeByClient map[string]string `json:"subscribeByClient,omitempty"`
+}
+
+// defaultFormatsFor returns formats the publisher typically emits for a bucket
+// when the current publication is unknown (no artifacts discovered yet).
+func defaultFormatsFor(bucketType string) map[string]bool {
+	m := map[string]bool{"shadow.json": true}
+	switch bucketType {
+	case "novel":
+		m["legado/books.json"] = true
+		m["hub/plugins.json"] = true
+	case "tvbox":
+		m["tvbox/store.json"] = true
+	case "iptv":
+		m["iptv/live.m3u"] = true
+	case "music":
+		m["lx-music/sources.json"] = true
+		m["music/playlist.m3u"] = true
+	case "audiobook":
+		m["legado/tts.json"] = true
+	case "manga":
+		m["mihon/repos.json"] = true
+	case "rss":
+		m["legado/rss.json"] = true
+		m["feeds.opml"] = true
+	}
+	return m
+}
+
+// aggregateSubscribe builds client-aware subscribe URLs for an aggregate bucket.
+// Flattened subscribeUrls put the primary client format first. Only formats present
+// in available (current publication artifacts) are advertised; if none are known,
+// assume the formats that publisher always emits for that type.
+func aggregateSubscribe(base, token, bucketType string, available map[string]bool) ([]string, map[string]string) {
+	if token == "" {
+		return nil, nil
+	}
+	if len(available) == 0 {
+		available = defaultFormatsFor(bucketType)
+	}
+	prefix := "/p/" + token + "/"
+	if base != "" {
+		prefix = strings.TrimRight(base, "/") + prefix
+	}
+	byClient := map[string]string{}
+	var urls []string
+	add := func(client, path string) {
+		if !available[path] {
+			return
+		}
+		u := prefix + path
+		if _, ok := byClient[client]; !ok {
+			byClient[client] = u
+		}
+		for _, existing := range urls {
+			if existing == u {
+				return
+			}
+		}
+		urls = append(urls, u)
+	}
+	switch bucketType {
+	case "novel":
+		add("legado", "legado/books.json")
+		add("hub", "hub/plugins.json")
+		add("shadowMedia", "shadow.json")
+	case "tvbox":
+		add("tvbox", "tvbox/store.json")
+		add("shadowMedia", "shadow.json")
+	case "iptv":
+		add("iptv", "iptv/live.m3u")
+		add("shadowMedia", "shadow.json")
+	case "music":
+		add("lxMusic", "lx-music/sources.json")
+		add("playlist", "music/playlist.m3u")
+		add("shadowMedia", "shadow.json")
+	case "audiobook":
+		add("legado", "legado/tts.json")
+		add("shadowMedia", "shadow.json")
+	case "manga":
+		add("mihon", "mihon/repos.json")
+		add("shadowMedia", "shadow.json")
+	case "rss":
+		add("legado", "legado/rss.json")
+		add("opml", "feeds.opml")
+		add("shadowMedia", "shadow.json")
+	default:
+		add("shadowMedia", "shadow.json")
+	}
+	if len(urls) == 0 && available["shadow.json"] {
+		add("shadowMedia", "shadow.json")
+	}
+	return urls, byClient
+}
+
+func (s *Service) publicationFormats(ctx context.Context, publicationID string) map[string]bool {
+	out := map[string]bool{}
+	if publicationID == "" {
+		return out
+	}
+	pub, e := store.Get[model.Publication](ctx, s.DB.Pool, "publications", publicationID)
+	if e != nil {
+		return out
+	}
+	for path := range pub.Artifacts {
+		out[path] = true
+	}
+	return out
 }
 
 func (s *Service) ListAggregates(ctx context.Context, publicBase string) ([]AggregateInfo, error) {
@@ -136,12 +244,8 @@ func (s *Service) ListAggregates(ctx context.Context, publicBase string) ([]Aggr
 			info.BindingID = bID
 			if tok, err := s.aggregateToken(ctx, def.Slug); err == nil && tok != "" {
 				info.Token = tok
-				path := "/p/" + tok + "/shadow.json"
-				if base != "" {
-					info.SubscribeURLs = []string{base + path}
-				} else {
-					info.SubscribeURLs = []string{path}
-				}
+				available := s.publicationFormats(ctx, info.PublicationID)
+				info.SubscribeURLs, info.SubscribeByClient = aggregateSubscribe(base, tok, def.Type, available)
 			}
 		}
 		out = append(out, info)

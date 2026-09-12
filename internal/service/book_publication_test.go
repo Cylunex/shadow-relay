@@ -130,3 +130,25 @@ func TestPublicationPreviewAndValidationPreservePointer(t *testing.T) {
 		t.Fatal("failed publish moved subscription")
 	}
 }
+
+func TestCompileDropsNonHTTPBookSourceURL(t *testing.T) {
+	s := harness(t)
+	body := `[{"bookSourceName":"OK","bookSourceUrl":"https://books.example.com/ok","ruleSearch":{"name":"a@text"}},{"bookSourceName":"Relative","bookSourceUrl":"books/local","ruleSearch":{"name":"a@text"}}]`
+	src := imported(t, s, body)
+	approve(t, s, src)
+	set, e := s.SaveSet(t.Context(), "", model.SourceSet{Name: "Books", Members: []model.Member{{SourceID: src.ID, MinScore: 0}}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := s.Publish(t.Context(), set.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var actual []map[string]any
+	if json.Unmarshal([]byte(p.Artifacts["legado/books.json"].Body), &actual) != nil || len(actual) != 1 {
+		t.Fatalf("expected 1 http entry, got %d body=%s", len(actual), p.Artifacts["legado/books.json"].Body)
+	}
+	if !strings.Contains(p.FormatWarnings["legado/books.json"], "1") {
+		t.Fatalf("expected skip warning: %v", p.FormatWarnings)
+	}
+}

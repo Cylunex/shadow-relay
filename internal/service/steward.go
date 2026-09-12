@@ -25,7 +25,7 @@ func ItemIdentity(protocol, entryID, entryURL, lang, account string) string {
 }
 
 func preferenceID(setID, itemKey string) string {
-	return "pref_" + security.Hash([]byte(setID+"\n"+itemKey))[:24]
+	return "pref_" + security.Hash([]byte(setID + "\n" + itemKey))[:24]
 }
 
 func (s *Service) SavePreference(ctx context.Context, in model.PreferenceOverlay) (model.PreferenceOverlay, error) {
@@ -202,7 +202,8 @@ func (s *Service) EnsurePersonalCredential(ctx context.Context, publicBase strin
 		entries = append(entries, map[string]any{
 			"type": info.Type, "setId": info.SetID, "name": info.Name,
 			"token": info.Token, "subscribeUrls": info.SubscribeURLs,
-			"memberCount": info.MemberCount, "formats": Formats,
+			"subscribeByClient": info.SubscribeByClient,
+			"memberCount":       info.MemberCount, "formats": Formats,
 		})
 	}
 	return map[string]any{

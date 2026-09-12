@@ -158,3 +158,37 @@ export function importDeepLink(
     ? `yuedu://${kind[format]}/importonline?src=${encodeURIComponent(url)}`
     : undefined;
 }
+
+/** Strip /p/{token}/… format suffix so TokenDialog can append a selected format. */
+export function publicationBase(subscribeUrl: string): string {
+  try {
+    const absolute = /^https?:\/\//i.test(subscribeUrl);
+    const u = new URL(subscribeUrl, "http://local.invalid");
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts[0] === "p" && parts.length >= 2) {
+      const path = "/p/" + parts[1];
+      return absolute ? u.origin + path : path;
+    }
+  } catch {
+    /* fall through */
+  }
+  return subscribeUrl.replace(
+    /\/(?:shadow\.json|legado\/books\.json|legado\/rss\.json|legado\/tts\.json|hub\/plugins\.json|tvbox\/store\.json|iptv\/live\.m3u|lx-music\/sources\.json|music\/playlist\.m3u|mihon\/repos\.json|feeds\.opml)$/,
+    "",
+  );
+}
+
+/** Best-effort format path from a full subscribe URL. */
+export function formatFromSubscribeUrl(subscribeUrl: string): string | undefined {
+  try {
+    const u = new URL(subscribeUrl, "http://local.invalid");
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts[0] === "p" && parts.length >= 3) {
+      return parts.slice(2).join("/");
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined;
+}
+

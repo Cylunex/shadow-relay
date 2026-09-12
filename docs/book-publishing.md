@@ -13,6 +13,8 @@
 7. **创建客户端绑定**：选择这个组，至少允许 `legado/books.json`，设置有效期，保存当次返回的订阅令牌。
 8. **在阅读导入书源地址**：使用 `https://relay.example.com/p/REPLACE_SUBSCRIPTION_TOKEN/legado/books.json`。仅打开 `/p/REPLACE_SUBSCRIPTION_TOKEN` 不是文件地址。
 
+聚合·小说的总览「复制阅读订阅」与 `GET /api/v1/aggregates` 已优先给出上述 `legado/books.json` 地址。超大合集仍可能被阅读拒绝；使用 Hub 时改导入/同步 `hub/plugins.json`。
+
 管理员令牌只用于管理 API；客户端用独立的订阅令牌。订阅令牌仅在创建/轮换时显示，丢失后可以轮换，旧地址立即失效。
 
 ## 选哪个文件

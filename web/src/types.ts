@@ -207,6 +207,7 @@ export type AggregateInfo = {
   bindingId?: string;
   token?: string;
   subscribeUrls: string[];
+  subscribeByClient?: Record<string, string>;
 };
 export type Data = {
   sources: Source[];

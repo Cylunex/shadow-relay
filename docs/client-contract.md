@@ -116,7 +116,7 @@
 | `rss` | `aggregate-rss` | 普通 RSS / Atom / JSON Feed / OPML / legado-rss |
 | `other` | `aggregate-other` | 其余协议（如 Emby 直连） |
 
-旧的 `aggregate-legado` 已拆分；升级后调用 `POST /api/v1/aggregates/reconcile`（或重新 enable 源）会按新规则重建成员。客户端只需订阅对应聚合组的稳定地址（`GET /p/{token}/shadow.json` 等），无需手工维护 SourceSet。禁用或删除源时会从聚合组移除并撤回空聚合发布（不再投递旧成员快照）；成员仍在但全部不健康时保留上一份可用发布。运营侧用 `GET /api/v1/aggregates` 查看类型 → 组 ID → 订阅 URL（含系统绑定令牌）。轮换后列表展示 vault 中的现行令牌。系统绑定令牌密文存在 `secrets`（数据目录，不入库）。
+旧的 `aggregate-legado` 已拆分；升级后调用 `POST /api/v1/aggregates/reconcile`（或重新 enable 源）会按新规则重建成员。客户端订阅对应聚合组的**主入口**（`GET /api/v1/aggregates` 的 `subscribeUrls[0]` / `subscribeByClient`）：小说给阅读用 `legado/books.json`（不要把 `shadow.json` 导入阅读），Hub/bridge 用 `hub/plugins.json`，TVBox 用 `tvbox/store.json`，IPTV 用 `iptv/live.m3u`，Shadow Media 仍用 `shadow.json`。超大书源包（约十余 MB）可能仍被阅读客户端拒绝导入，此时改走 Hub。禁用或删除源时会从聚合组移除并撤回空聚合发布（不再投递旧成员快照）；成员仍在但全部不健康时保留上一份可用发布。运营侧用 `GET /api/v1/aggregates` 查看类型 → 组 ID → 订阅 URL（含系统绑定令牌）。轮换后列表展示 vault 中的现行令牌。系统绑定令牌密文存在 `secrets`（数据目录，不入库）。
 
 ### 音乐协议说明
 

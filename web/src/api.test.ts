@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, apiUpload, hasCredential, setCredential } from "./api";
+import {
+  api,
+  apiUpload,
+  formatFromSubscribeUrl,
+  hasCredential,
+  publicationBase,
+  setCredential,
+} from "./api";
 
 const memory = new Map<string, string>();
 
@@ -83,3 +90,18 @@ describe("API boundary", () => {
     expect(memory.get("shadow-relay.admin.token")).toBeUndefined();
   });
 });
+
+describe("publicationBase", () => {
+  it("strips legado books path without breaking token base", () => {
+    expect(
+      publicationBase(
+        "https://relay.example.com/p/abc123/legado/books.json",
+      ),
+    ).toBe("https://relay.example.com/p/abc123");
+    expect(publicationBase("/p/abc123/shadow.json")).toBe("/p/abc123");
+    expect(formatFromSubscribeUrl("/p/abc123/legado/books.json")).toBe(
+      "legado/books.json",
+    );
+  });
+});
+

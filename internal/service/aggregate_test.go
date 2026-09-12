@@ -84,11 +84,15 @@ func TestAggregateMembershipOnEnableDisableDelete(t *testing.T) {
 	for _, info := range infos {
 		if info.Slug == "aggregate-iptv" {
 			found = true
-			if info.MemberCount != 1 || info.Token == "" || len(info.SubscribeURLs) != 1 {
+			if info.MemberCount != 1 || info.Token == "" || len(info.SubscribeURLs) < 1 {
 				t.Fatalf("aggregate info incomplete: %+v", info)
 			}
-			if info.SubscribeURLs[0] != "https://relay.example.com/p/"+info.Token+"/shadow.json" {
-				t.Fatalf("subscribe url: %v", info.SubscribeURLs)
+			wantPrimary := "https://relay.example.com/p/" + info.Token + "/iptv/live.m3u"
+			if info.SubscribeURLs[0] != wantPrimary {
+				t.Fatalf("subscribe url primary: %v want %s", info.SubscribeURLs, wantPrimary)
+			}
+			if info.SubscribeByClient["iptv"] != wantPrimary {
+				t.Fatalf("subscribeByClient: %+v", info.SubscribeByClient)
 			}
 		}
 	}
@@ -180,4 +184,75 @@ func TestReconcileAggregatesRebuckets(t *testing.T) {
 	if e != nil || len(set.Members) != 1 || set.Members[0].SourceID != src.ID {
 		t.Fatalf("novel membership after reconcile: %v %+v", e, set)
 	}
+}
+
+func TestAggregateSubscribeSelection(t *testing.T) {
+	avail := map[string]bool{
+		"legado/books.json": true,
+		"hub/plugins.json":  true,
+		"shadow.json":       true,
+		"tvbox/store.json":  true,
+		"iptv/live.m3u":     true,
+	}
+	urls, by := aggregateSubscribe("https://relay.example.com", "tok", "novel", avail)
+	if len(urls) < 1 || urls[0] != "https://relay.example.com/p/tok/legado/books.json" {
+		t.Fatalf("novel primary: %v", urls)
+	}
+	if by["legado"] != urls[0] || by["hub"] == "" || by["shadowMedia"] == "" {
+		t.Fatalf("novel byClient: %+v", by)
+	}
+	urls, by = aggregateSubscribe("https://relay.example.com", "tok", "tvbox", avail)
+	if urls[0] != "https://relay.example.com/p/tok/tvbox/store.json" || by["tvbox"] != urls[0] {
+		t.Fatalf("tvbox: %v %+v", urls, by)
+	}
+	urls, by = aggregateSubscribe("", "tok", "iptv", avail)
+	if urls[0] != "/p/tok/iptv/live.m3u" || by["iptv"] != urls[0] {
+		t.Fatalf("iptv relative: %v %+v", urls, by)
+	}
+	urls, by = aggregateSubscribe("https://relay.example.com", "tok", "other", map[string]bool{"shadow.json": true})
+	if len(urls) != 1 || urls[0] != "https://relay.example.com/p/tok/shadow.json" {
+		t.Fatalf("other: %v", urls)
+	}
+	// Missing client export should not invent URLs.
+	urls, by = aggregateSubscribe("https://relay.example.com", "tok", "novel", map[string]bool{"shadow.json": true})
+	if len(urls) != 1 || by["legado"] != "" || urls[0] != "https://relay.example.com/p/tok/shadow.json" {
+		t.Fatalf("novel without books: %v %+v", urls, by)
+	}
+	// Unknown publication: assume type defaults so novel still leads with legado.
+	urls, by = aggregateSubscribe("https://relay.example.com", "tok", "novel", nil)
+	if urls[0] != "https://relay.example.com/p/tok/legado/books.json" || by["legado"] != urls[0] {
+		t.Fatalf("novel defaults: %v %+v", urls, by)
+	}
+	urls, by = aggregateSubscribe("https://relay.example.com", "tok", "music", nil)
+	if by["lxMusic"] == "" && by["playlist"] == "" {
+		t.Fatalf("music defaults: %v %+v", urls, by)
+	}
+}
+
+func TestListAggregatesNovelAdvertisesLegado(t *testing.T) {
+	s := harness(t)
+	ctx := context.Background()
+	src := imported(t, s, `[{"bookSourceName":"Example book","bookSourceUrl":"https://books.example.com","ruleSearch":{"name":"a@text"}}]`)
+	approve(t, s, src)
+	infos, e := s.ListAggregates(ctx, "https://relay.example.com")
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, info := range infos {
+		if info.Slug != "aggregate-novel" {
+			continue
+		}
+		if info.MemberCount != 1 || info.Token == "" {
+			t.Fatalf("novel aggregate incomplete: %+v", info)
+		}
+		want := "https://relay.example.com/p/" + info.Token + "/legado/books.json"
+		if len(info.SubscribeURLs) < 1 || info.SubscribeURLs[0] != want {
+			t.Fatalf("novel subscribeUrls: %v", info.SubscribeURLs)
+		}
+		if info.SubscribeByClient["legado"] != want {
+			t.Fatalf("subscribeByClient legado: %+v", info.SubscribeByClient)
+		}
+		return
+	}
+	t.Fatal("aggregate-novel missing")
 }
