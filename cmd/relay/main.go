@@ -57,12 +57,15 @@ func main() {
 	db, e := store.Open(connectCtx, dsn)
 	cancel()
 	if e != nil {
-		slog.Error("database connection failed")
+		slog.Error("database connection failed", "error", e.Error())
 		os.Exit(1)
 	}
 	defer db.Pool.Close()
-	if e = db.Migrate(ctx); e != nil {
-		slog.Error("database migration failed")
+	migrateCtx, migrateCancel := context.WithTimeout(ctx, 2*time.Minute)
+	e = db.Migrate(migrateCtx)
+	migrateCancel()
+	if e != nil {
+		slog.Error("database migration failed", "error", e.Error())
 		os.Exit(1)
 	}
 	if mode == "migrate" {

@@ -490,7 +490,19 @@ func Compile(set model.SourceSet, items []selected, excluded map[string]string) 
 	}
 	for proto, path := range map[string]string{"legado-book": "legado/books.json", "legado-rss": "legado/rss.json", "legado-tts": "legado/tts.json", "legado-replace": "legado/replace.json"} {
 		if len(legado[proto]) > 0 {
-			add(path, "application/json", string(jsonBytes(legado[proto])))
+			body := string(jsonBytes(legado[proto]))
+			add(path, "application/json", body)
+			if proto == "legado-book" && (len(legado[proto]) >= 1500 || len(body) >= 4<<20) {
+				if p.FormatWarnings == nil {
+					p.FormatWarnings = map[string]string{}
+				}
+				prev := p.FormatWarnings[path]
+				msg := fmt.Sprintf("large pack (%d entries, %.1f MiB); 阅读 import may fail — prefer Hub hub/plugins.json or a curated subset", len(legado[proto]), float64(len(body))/(1<<20))
+				if prev != "" {
+					msg = prev + "; " + msg
+				}
+				p.FormatWarnings[path] = msg
+			}
 		}
 	}
 	if len(feeds) > 0 {

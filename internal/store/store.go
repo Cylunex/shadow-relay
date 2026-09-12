@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 
 	"github.com/Cylunex/shadow-relay/migrations"
@@ -13,6 +14,7 @@ import (
 )
 
 var ErrNotFound = errors.New("not found")
+var migrationFile = regexp.MustCompile(`^[0-9]+_.+\.sql$`)
 var tables = map[string]bool{"feedback": true, "catalogs": true, "runtimes": true, "sources": true, "endpoints": true, "secrets": true, "revisions": true, "candidates": true, "probes": true, "source_sets": true, "publications": true, "bindings": true, "audits": true, "preferences": true, "deleted_sources": true}
 
 type DB struct{ Pool *pgxpool.Pool }
@@ -47,7 +49,7 @@ func (d *DB) Migrate(ctx context.Context) error {
 		}
 		sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
 		for _, f := range files {
-			if f.IsDir() {
+			if f.IsDir() || !migrationFile.MatchString(f.Name()) {
 				continue
 			}
 			var exists bool

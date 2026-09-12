@@ -152,3 +152,29 @@ func TestCompileDropsNonHTTPBookSourceURL(t *testing.T) {
 		t.Fatalf("expected skip warning: %v", p.FormatWarnings)
 	}
 }
+
+func TestLegadoBooksWarnsOnLargePack(t *testing.T) {
+	s := harness(t)
+	entries := make([]any, 0, 1500)
+	for i := 0; i < 1500; i++ {
+		entries = append(entries, map[string]any{"bookSourceName": fmt.Sprintf("Book %d", i), "bookSourceUrl": fmt.Sprintf("https://books.example.com/%d", i), "ruleSearch": map[string]string{"name": "@js:result"}})
+	}
+	src := imported(t, s, string(jsonBytes(entries)))
+	approve(t, s, src)
+	set, err := s.SaveSet(t.Context(), "", model.SourceSet{Name: "Huge", Members: []model.Member{{SourceID: src.ID}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.Publish(t.Context(), set.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	warn := p.FormatWarnings["legado/books.json"]
+	if !strings.Contains(warn, "large pack") || !strings.Contains(warn, "Hub") {
+		t.Fatalf("expected large-pack Hub warning, got %q", warn)
+	}
+	var actual []any
+	if json.Unmarshal([]byte(p.Artifacts["legado/books.json"].Body), &actual) != nil || len(actual) != 1500 {
+		t.Fatalf("expected full pack still exported, got %d", len(actual))
+	}
+}
